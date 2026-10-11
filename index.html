@@ -304,9 +304,14 @@ img { max-width: 100%; }
         <button class="chip" data-s="train">기차</button>
         <button class="chip" data-s="forest">한밤의 숲</button>
         <button class="chip" data-s="chimes">풍경</button>
-        <button class="chip" data-s="lullaby">오르골</button>
+        <button class="chip" data-s="lullaby">자장가 오르골</button>
+        <button class="chip" data-s="musicbox">음악상자</button>
         <button class="chip" data-s="noise">잔잔한 소음</button>
       </div>
+    </div>
+    <div class="field">
+      <span class="lbl" style="display:flex;justify-content:space-between">수면 음악 볼륨 <b id="sleep-vol-val" style="color:var(--lamp);font-weight:600;font-variant-numeric:tabular-nums"></b></span>
+      <input type="range" id="sleep-vol" min="0" max="100" step="5" aria-label="수면 음악 볼륨">
     </div>
     <div class="field">
       <span class="lbl">재생 시간</span>
@@ -367,7 +372,7 @@ img { max-width: 100%; }
       { on: false, t: "08:30" }, { on: false, t: "09:00" }
     ],
     sound: "chime", volume: 80, snooze: 9, fade: true, flash: true, h24: true, layout: "auto",
-    sleepSound: "rain", sleepMin: 30, wasArmed: false, bg: "night"
+    sleepSound: "rain", sleepMin: 30, sleepVol: 60, wasArmed: false, bg: "night"
   };
   let S = structuredClone(defaults);
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
@@ -535,7 +540,7 @@ img { max-width: 100%; }
   }
 
   // ---------- sleep music ----------
-  const SLEEP_NAMES = { rain: "빗소리", storm: "폭풍우 밤", stream: "시냇물", waves: "파도", fire: "모닥불", train: "기차", forest: "한밤의 숲", chimes: "풍경", lullaby: "오르골", noise: "잔잔한 소음" };
+  const SLEEP_NAMES = { rain: "빗소리", storm: "폭풍우 밤", stream: "시냇물", waves: "파도", fire: "모닥불", train: "기차", forest: "한밤의 숲", chimes: "풍경", lullaby: "자장가 오르골", musicbox: "음악상자", noise: "잔잔한 소음" };
   const bufCache = {};
   function noiseBuffer(kind, secs = 8) {
     const k = kind + secs; if (bufCache[k]) return bufCache[k];
@@ -657,6 +662,31 @@ img { max-width: 100%; }
         }
       }, 400);
     },
+    musicbox(e) {
+      // an original waltz on a wind-up music box: bass + arpeggio + melody, with the comb's soft clicks
+      bed(e, "pink", 9, [["lowpass", 400]], .07);
+      const BEAT = .48;
+      const chords = [[130.81, 261.63, 329.63, 392], [110, 220, 261.63, 329.63], [87.31, 174.61, 220, 261.63], [98, 196, 246.94, 293.66],
+                      [130.81, 261.63, 329.63, 392], [87.31, 174.61, 220, 261.63], [98, 196, 246.94, 293.66], [130.81, 261.63, 329.63, 392]];
+      const melody = [[783.99, 659.25, 698.46], [659.25, 523.25, 587.33], [698.46, 880, 783.99], [587.33, 493.88, 523.25],
+                      [659.25, 783.99, 1046.5], [880, 698.46, 659.25], [587.33, 659.25, 493.88], [523.25, 0, 0]];
+      const tine = [[1, 1], [3.0, .12], [5.8, .05]];
+      const pluck = (t, f, amp) => {
+        bell(t, f, 2.2, amp, e.out, tine);
+        burst(e, t, "white", .006, .03, [["highpass", 4500]], .001);
+      };
+      let t0 = ctx.currentTime + .1, step = 0;
+      every(e, () => {
+        while (t0 < ctx.currentTime + 1.5) {
+          const bar = Math.floor(step / 3) % chords.length, beat = step % 3, ch = chords[bar];
+          if (beat === 0) bell(t0, ch[0], 3, .1, e.out, tine);
+          else pluck(t0, ch[beat] * 2, .07);
+          const m = melody[bar][beat]; if (m) pluck(t0 + .01, m, .17);
+          // the spring slows a touch at the end of each 8-bar phrase
+          t0 += BEAT * (bar === 7 ? 1.25 : 1); step++;
+        }
+      }, 400);
+    },
     noise(e) { bed(e, "pink", 8, [["lowpass", 2400]], .6); }
   };
   function chirpBubble(e, t) {
@@ -669,21 +699,23 @@ img { max-width: 100%; }
   let sleep = null;
   function startSleep(kind, minutes) {
     ensureAudio(); stopSleep(true);
-    const out = ctx.createGain(); out.connect(master);
-    const vol = (S.volume / 100) * .9, now = ctx.currentTime;
+    // out carries the fade-in/fade-out envelope; level follows the sleep volume bar live
+    const level = ctx.createGain(); level.gain.value = S.sleepVol / 100; level.connect(master);
+    const out = ctx.createGain(); out.connect(level);
+    const vol = .9, now = ctx.currentTime;
     out.gain.setValueAtTime(0, now); out.gain.linearRampToValueAtTime(vol, now + 4);
     const env = { out, nodes: [], timers: [] };
     (SLEEP[kind] || SLEEP.rain)(env);
     out.gain.setValueAtTime(vol, now + Math.max(minutes * 60 - 30, 4));
     out.gain.linearRampToValueAtTime(0, now + minutes * 60);
-    sleep = { ...env, kind, endAt: Date.now() + minutes * 60000, timer: setTimeout(() => stopSleep(true), minutes * 60000 + 300) };
+    sleep = { ...env, level, kind, endAt: Date.now() + minutes * 60000, timer: setTimeout(() => stopSleep(true), minutes * 60000 + 300) };
     syncSleepSheet(); tick();
   }
   function stopSleep(immediate) {
     if (!sleep) return;
     const s = sleep; sleep = null; clearTimeout(s.timer); s.timers.forEach(clearInterval);
     const t = ctx.currentTime; s.out.gain.cancelScheduledValues(t); s.out.gain.setTargetAtTime(0, t, immediate ? .05 : .6);
-    setTimeout(() => { s.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); s.out.disconnect(); }, immediate ? 300 : 2500);
+    setTimeout(() => { s.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); s.out.disconnect(); s.level.disconnect(); }, immediate ? 300 : 2500);
     syncSleepSheet(); tick();
   }
 
@@ -800,8 +832,14 @@ img { max-width: 100%; }
     let m = S.sleepMin === "until" ? (isFinite(left) ? Math.floor(left - SLEEP_BLOCK_MIN) : 30) : +S.sleepMin;
     return Math.max(1, m || 30);
   }
+  $("sleep-vol").oninput = e => {
+    S.sleepVol = +e.target.value; $("sleep-vol-val").textContent = S.sleepVol + "%"; save();
+    if (sleep) sleep.level.gain.setTargetAtTime(S.sleepVol / 100, ctx.currentTime, .05);
+  };
   function syncSleepSheet() {
     pick("sleep-sounds", "s", S.sleepSound); pick("sleep-mins", "m", S.sleepMin);
+    if (document.activeElement !== $("sleep-vol")) $("sleep-vol").value = S.sleepVol;
+    $("sleep-vol-val").textContent = S.sleepVol + "%";
     const presets = [...$("sleep-mins").querySelectorAll("button")].map(b => b.dataset.m);
     const custom = !presets.includes(String(S.sleepMin));
     $("sleep-custom").classList.toggle("active", custom);

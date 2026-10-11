@@ -1,5 +1,5 @@
 // Offline support: keeps the app shell and fonts so the alarm opens without a connection.
-const VERSION = "seven-mornings-v2";
+const VERSION = "seven-mornings-v4";
 const SHELL = [
   "./",
   "./index.html",
