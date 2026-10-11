@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10161a">
+<meta name="description" content="요일마다 다른 시간에 깨워 주는 알람시계">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="일곱 아침">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>일곱 개의 아침</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@200;300;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: three screens — setup (week list), alarm-on (bedside clock), ringing. Single deliberate night look. */
+:root {
+  --ink: #10161a;
+  --panel: #172127;
+  --panel-2: #1e2a31;
+  --line: #2a3840;
+  --text: #e9e3d5;
+  --muted: #8d9a96;
+  --lamp: #f2a65e;
+  --lamp-soft: rgba(242,166,94,.14);
+  --off: #3a4a52;
+  --alert: #e2735f;
+  --f-clock: "Azeret Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--ink); color: var(--text);
+  font-family: var(--f-ui); font-size: 15px; line-height: 1.5;
+  padding-inline: 16px; padding-block: 16px;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+.btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 12px;
+  padding: 10px 16px; font-size: 15px; display: inline-flex; gap: 8px; align-items: center; justify-content: center;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--lamp); color: #1b130a; border-color: var(--lamp); font-weight: 600; }
+.btn.ghost { background: transparent; }
+.btn.big { padding: 16px; font-size: 17px; border-radius: 14px; width: 100%; }
+.pill { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--lamp-soft); color: var(--lamp); font-weight: 600; letter-spacing: .02em; }
+.pill.dim { background: var(--panel-2); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+
+/* ---------- Setup screen ---------- */
+.setup { max-width: 460px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0,1fr); }
+.setup.land { max-width: 960px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+@media (min-width: 820px) and (min-aspect-ratio: 5/4) {
+  .setup.auto { max-width: 960px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+}
+.setup .head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.setup h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.setup .now { font-family: var(--f-clock); font-weight: 300; font-size: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.status b { color: var(--text); font-weight: 500; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.card h2 { margin: 0; padding: 14px 16px 10px; font-size: 12px; font-weight: 600; letter-spacing: .12em; color: var(--muted); }
+.row {
+  display: grid; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 12px;
+  padding: 10px 16px; border-top: 1px solid var(--line);
+}
+.row.today { background: linear-gradient(90deg, var(--lamp-soft), transparent 70%); }
+.row .day { font-weight: 600; }
+.row.weekend .day { color: var(--muted); }
+.row.today .day { color: var(--lamp); }
+.row .t {
+  justify-self: start; background: none; border: 0; padding: 2px 4px; margin-left: -4px; border-radius: 6px;
+  font-family: var(--f-clock); font-weight: 300; font-size: 28px; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+}
+.row .t:hover { background: var(--panel-2); }
+.row .t .ap { font-family: var(--f-ui); font-size: 12px; color: var(--muted); margin-right: 6px; letter-spacing: 0; }
+.row.off .t { color: var(--off); }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.opt > span { min-width: 0; }
+.opt .hint { display: block; font-size: 12px; color: var(--muted); }
+.opt.stack { display: grid; gap: 8px; justify-content: stretch; }
+.opt.stack .lab { display: flex; justify-content: space-between; }
+.opt.stack .lab b { font-weight: 500; color: var(--lamp); font-variant-numeric: tabular-nums; }
+select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; max-width: 60%; }
+input[type=range] { width: 100%; accent-color: var(--lamp); }
+.go { grid-column: 1 / -1; display: grid; gap: 8px; }
+
+.switch { position: relative; width: 46px; height: 26px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; background: var(--off); border-radius: 99px; transition: background .2s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text); transition: transform .2s; }
+.switch input:checked + span { background: var(--lamp); }
+.switch input:checked + span::after { transform: translateX(20px); background: #1b130a; }
+.switch input:focus-visible + span { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+/* ---------- Alarm-on screen (bedside clock) ---------- */
+.armed {
+  min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 16px;
+  max-width: 1100px; margin: 0 auto;
+}
+.armed .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.armed .top .pill { font-size: 13px; padding: 4px 12px; }
+.armed .face {
+  display: grid; place-content: center; text-align: center; gap: 10px; cursor: pointer;
+  transition: opacity .4s; user-select: none;
+}
+.armed.dim .face { opacity: .28; }
+.bigclock {
+  font-family: var(--f-clock); font-weight: 200; line-height: .9; letter-spacing: -.05em;
+  font-size: clamp(64px, 19vw, 230px); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bigclock .sec { font-size: .34em; font-weight: 300; color: var(--muted); letter-spacing: -.02em; margin-left: .18em; }
+.bigclock .colon { color: var(--lamp); }
+.bigclock .ap { font-family: var(--f-ui); font-size: .14em; font-weight: 500; color: var(--lamp); letter-spacing: .02em; margin-right: .3em; vertical-align: .3em; }
+.armed .date { color: var(--muted); font-size: clamp(14px, 2.2vw, 20px); }
+.armed .nextline { font-size: clamp(15px, 2.4vw, 22px); }
+.armed .nextline b { color: var(--lamp); font-weight: 500; font-variant-numeric: tabular-nums; }
+.armed .tapnote { font-size: 12px; color: var(--muted); }
+.armed .bar { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.armed .bar .btn { padding: 14px 8px; }
+.sleep-left { color: var(--lamp); font-variant-numeric: tabular-nums; }
+
+/* ---------- Sheets ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(5,8,10,.66); display: grid; place-items: end center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
+@media (min-width: 640px) { .scrim { place-items: center; } }
+.sheet { width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: grid; gap: 16px; max-height: 88vh; overflow: auto; }
+.sheet h3 { margin: 0; font-size: 17px; font-weight: 600; }
+.field { display: grid; gap: 8px; }
+.field .lbl { font-size: 12px; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+input[type=time] { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; font-family: var(--f-clock); font-size: 36px; font-weight: 300; padding: 6px 12px; width: 100%; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--lamp); color: #1b130a; border-color: var(--lamp); font-weight: 600; }
+.acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.custom-min { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.custom-min input { width: 120px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+.custom-min input.active { border-color: var(--lamp); }
+.warn { margin: 0; font-size: 13px; color: var(--alert); background: rgba(226,115,95,.12); border-radius: 10px; padding: 8px 12px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---------- Ringing ---------- */
+.ring { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; text-align: center; background: var(--ink); padding: 24px; }
+.ring.flash { animation: flash 1s steps(1) infinite; }
+@keyframes flash { 50% { background: #3b2a17; } }
+.ring .lab { color: var(--alert); letter-spacing: .14em; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.ring .bigclock { font-size: clamp(64px, 18vw, 190px); }
+.ring .acts2 { display: grid; gap: 10px; margin: 32px auto 0; width: min(340px, 100%); }
+
+/* ---------- Backgrounds ---------- */
+.bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--ink); background-size: cover; background-position: center; transition: background .4s; }
+.bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bg .shade { position: absolute; inset: 0; background: rgba(10,14,17,var(--shade, 0)); transition: background .4s; }
+#scr-setup, #scr-on { position: relative; z-index: 1; }
+.card { background: rgba(23,33,39,.80); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.btn:not(.primary) { background: rgba(23,33,39,.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ring { background: rgba(12,16,20,.74); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+@keyframes flash { 50% { background: rgba(90,58,26,.88); } }
+.bigclock, .armed .date, .armed .nextline { text-shadow: 0 2px 18px rgba(0,0,0,.45); }
+.bg-picks { display: flex; flex-wrap: wrap; gap: 10px; }
+.bgopt { display: grid; gap: 4px; justify-items: center; background: none; border: 0; padding: 0; font-size: 12px; color: var(--muted); width: 58px; }
+.bgopt i { display: block; width: 52px; height: 52px; border-radius: 12px; border: 1px solid var(--line); background-size: cover; background-position: center; }
+.bgopt i.plus { display: grid; place-items: center; font-style: normal; font-size: 22px; color: var(--muted); background: var(--panel-2); }
+.bgopt[aria-pressed="true"] { color: var(--text); }
+.bgopt[aria-pressed="true"] i { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring.flash { animation-duration: 2s; }
+  .switch span, .switch span::after, .armed .face { transition: none; }
+}
+</style>
+<style>
+/* App shell: keep clear of the notch and home indicator, no rubber-band scroll or tap flash */
+[hidden] { display: none !important; }
+body {
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+.armed { min-height: calc(100dvh - max(16px, env(safe-area-inset-top, 0px)) - max(16px, env(safe-area-inset-bottom, 0px))); }
+.armed .face, .bigclock { -webkit-user-select: none; user-select: none; }
+img { max-width: 100%; }
+</style>
+</head>
+<body>
+<!-- ===== Screen 1: setup ===== -->
+<div class="bg" id="bg" aria-hidden="true"><canvas id="bg-canvas"></canvas><div class="shade"></div></div>
+<main class="setup auto" id="scr-setup">
+  <div class="head">
+    <h1>알람 설정</h1>
+    <span class="now" id="setup-now"></span>
+  </div>
+  <div class="status" id="setup-status"></div>
+
+  <section class="card" aria-label="요일별 알람">
+    <h2>요일별 알람 · 시간을 누르면 바꿀 수 있어요</h2>
+    <div id="rows"></div>
+  </section>
+
+  <section class="card" aria-label="알람 옵션">
+    <h2>알람 옵션</h2>
+    <div class="opt"><span>알람 소리</span>
+      <select id="sound" aria-label="알람 소리">
+        <option value="chime">아침 차임</option>
+        <option value="bell">탁상시계 벨</option>
+        <option value="beep">전자 비프</option>
+        <option value="musicbox">오르골</option>
+        <option value="birds">새소리</option>
+        <option value="file">내 음악 파일…</option>
+      </select>
+    </div>
+    <input type="file" id="sound-file" accept="audio/*" hidden>
+    <div class="opt" id="file-row" hidden><span class="note" id="file-name"></span></div>
+    <div class="opt stack"><span class="lab"><span>볼륨</span><b id="volume-val"></b></span><input type="range" id="volume" min="10" max="100" step="5" aria-label="볼륨"></div>
+    <div class="opt stack"><span class="lab"><span>스누즈</span><b id="snooze-val"></b></span><input type="range" id="snooze" min="3" max="30" step="1" aria-label="스누즈 시간"></div>
+    <div class="opt"><span>점점 커지는 알람<span class="hint">30초에 걸쳐 작게 시작해 커져요</span></span><label class="switch"><input type="checkbox" id="fade" aria-label="점점 커지는 알람"><span></span></label></div>
+    <div class="opt"><span>진동<span class="hint">PC에서는 화면 깜빡임으로 알려요</span></span><label class="switch"><input type="checkbox" id="flash" aria-label="진동"><span></span></label></div>
+    <div class="opt"><span>24시간 표시</span><label class="switch"><input type="checkbox" id="h24" aria-label="24시간 표시"><span></span></label></div>
+    <div class="opt"><span>화면 방향</span>
+      <select id="layout" aria-label="화면 방향">
+        <option value="auto">창에 맞춤</option>
+        <option value="port">세로</option>
+        <option value="land">가로</option>
+      </select>
+    </div>
+    <div class="opt stack"><span class="lab"><span>배경</span><b id="bg-name"></b></span>
+      <div class="bg-picks" id="bg-picks" role="group" aria-label="배경 고르기"></div>
+      <span class="note" id="bg-note" hidden></span>
+    </div>
+    <input type="file" id="bg-file" accept="image/*" hidden>
+    <div class="opt"><span>소리 확인</span><button class="btn" id="test">알람 미리 듣기</button></div>
+  </section>
+
+  <div class="go">
+    <button class="btn primary big" id="arm">알람 켜기</button>
+    <p class="note" style="text-align:center">이 창을 열어 둔 동안 알람이 울려요. 컴퓨터 볼륨도 확인해 주세요.</p>
+  </div>
+</main>
+
+<!-- ===== Screen 2: alarm on ===== -->
+<main class="armed" id="scr-on" hidden>
+  <div class="top">
+    <span class="pill" id="on-pill">알람 켜짐</span>
+    <span class="note" id="on-sleep"></span>
+  </div>
+  <div class="face" id="face" title="눌러서 화면 밝기 바꾸기">
+    <div class="date" id="on-date"></div>
+    <div class="bigclock" id="on-clock"></div>
+    <div class="nextline" id="on-next"></div>
+    <div class="tapnote">시계를 누르면 화면이 어두워져요</div>
+  </div>
+  <div class="bar">
+    <button class="btn" id="open-sleep">수면 타이머 <span class="sleep-left" id="sleep-left"></span></button>
+    <button class="btn" id="to-setup">알람 설정</button>
+    <button class="btn" id="disarm">알람 끄기</button>
+  </div>
+</main>
+
+<!-- Edit a day -->
+<div class="scrim" id="edit" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+    <h3 id="edit-title">월요일 알람</h3>
+    <input type="time" id="edit-time" value="07:00" aria-label="알람 시간">
+    <div class="field">
+      <span class="lbl">이 시간으로 알람 켜기</span>
+      <div class="grid2">
+        <button class="btn" data-apply="one" id="apply-one">이 요일만</button>
+        <button class="btn" data-apply="weekdays" id="apply-weekdays">평일 (월–금)</button>
+        <button class="btn" data-apply="weekend" id="apply-weekend">주말 (토·일)</button>
+        <button class="btn" data-apply="all" id="apply-all">매일</button>
+      </div>
+      <p class="note">고르면 바로 알람이 켜지고 시계 화면으로 넘어가요.</p>
+    </div>
+    <button class="btn ghost" data-close="edit" id="edit-cancel">취소</button>
+  </div>
+</div>
+
+<!-- Sleep timer -->
+<div class="scrim" id="sleep" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sleep-title">
+    <h3 id="sleep-title">수면 타이머</h3>
+    <div class="field">
+      <span class="lbl">수면 음악</span>
+      <div class="chips" id="sleep-sounds">
+        <button class="chip" data-s="rain">빗소리</button>
+        <button class="chip" data-s="storm">폭풍우 밤</button>
+        <button class="chip" data-s="stream">시냇물</button>
+        <button class="chip" data-s="waves">파도</button>
+        <button class="chip" data-s="fire">모닥불</button>
+        <button class="chip" data-s="train">기차</button>
+        <button class="chip" data-s="forest">한밤의 숲</button>
+        <button class="chip" data-s="chimes">풍경</button>
+        <button class="chip" data-s="lullaby">자장가 오르골</button>
+        <button class="chip" data-s="musicbox">음악상자</button>
+        <button class="chip" data-s="noise">잔잔한 소음</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl" style="display:flex;justify-content:space-between">수면 음악 볼륨 <b id="sleep-vol-val" style="color:var(--lamp);font-weight:600;font-variant-numeric:tabular-nums"></b></span>
+      <input type="range" id="sleep-vol" min="0" max="100" step="5" aria-label="수면 음악 볼륨">
+    </div>
+    <div class="field">
+      <span class="lbl">재생 시간</span>
+      <div class="chips" id="sleep-mins">
+        <button class="chip" data-m="1">1분</button>
+        <button class="chip" data-m="3">3분</button>
+        <button class="chip" data-m="5">5분</button>
+        <button class="chip" data-m="10">10분</button>
+        <button class="chip" data-m="15">15분</button>
+        <button class="chip" data-m="20">20분</button>
+        <button class="chip" data-m="30">30분</button>
+        <button class="chip" data-m="45">45분</button>
+        <button class="chip" data-m="60">1시간</button>
+        <button class="chip" data-m="90">1시간 30분</button>
+        <button class="chip" data-m="120">2시간</button>
+        <button class="chip" data-m="180">3시간</button>
+        <button class="chip" data-m="until" id="chip-until">알람 5분 전까지</button>
+      </div>
+      <div class="custom-min">
+        <input type="number" id="sleep-custom" min="1" max="600" step="1" placeholder="직접 입력" aria-label="재생 시간 직접 입력(분)">
+        <span>분</span>
+      </div>
+      <p class="note">끝나기 30초 전부터 소리가 천천히 작아져요.</p>
+      <p class="warn" id="sleep-warn" hidden></p>
+    </div>
+    <div class="acts">
+      <button class="btn primary" id="sleep-go">재생</button>
+      <button class="btn" id="sleep-stop" hidden>멈추기</button>
+      <button class="btn ghost" data-close="sleep" id="sleep-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Screen 3: ringing ===== -->
+<div class="ring" id="ring" hidden role="alertdialog" aria-labelledby="ring-lab">
+  <div>
+    <div class="lab" id="ring-lab">알람</div>
+    <div class="bigclock" id="ring-time">07:00</div>
+    <div class="acts2">
+      <button class="btn primary big" id="snooze-btn">스누즈 9분</button>
+      <button class="btn big" id="stop-btn">알람 멈추기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
+  const DAY_FULL = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"];
+  const KEY = "seven-mornings-v2";
+  const $ = id => document.getElementById(id);
+
+  // ---------- state ----------
+  const defaults = {
+    days: [
+      { on: true, t: "07:00" }, { on: true, t: "07:00" }, { on: true, t: "07:00" },
+      { on: true, t: "07:00" }, { on: true, t: "07:00" },
+      { on: false, t: "08:30" }, { on: false, t: "09:00" }
+    ],
+    sound: "chime", volume: 80, snooze: 9, fade: true, flash: true, h24: true, layout: "auto",
+    sleepSound: "rain", sleepMin: 30, sleepVol: 60, wasArmed: false, bg: "night"
+  };
+  let S = structuredClone(defaults);
+  try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
+  if (S.sound === "file") S.sound = "chime";
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  let armed = false, ringing = false, view = "setup";
+  let snoozeAt = null, lastCheck = Date.now();
+  const fired = new Set();
+
+  // ---------- helpers ----------
+  const pad = n => String(n).padStart(2, "0");
+  const wdIdx = d => (d.getDay() + 6) % 7;
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseT = t => t.split(":").map(Number);
+  function fmt(h, m, parts) {
+    if (S.h24) return parts ? { ap: "", hm: `${pad(h)}:${pad(m)}` } : `${pad(h)}:${pad(m)}`;
+    const ap = h < 12 ? "오전" : "오후", hh = h % 12 || 12;
+    return parts ? { ap, hm: `${hh}:${pad(m)}` } : `${ap} ${hh}:${pad(m)}`;
+  }
+  function clockHTML(d) {
+    const f = fmt(d.getHours(), d.getMinutes(), true), [a, b] = f.hm.split(":");
+    return `${f.ap ? `<span class="ap">${f.ap}</span>` : ""}${a}<span class="colon">:</span>${b}<span class="sec">${pad(d.getSeconds())}</span>`;
+  }
+  function nextAlarm(now = new Date()) {
+    let best = null;
+    for (let k = 0; k <= 7; k++) {
+      const d = new Date(now); d.setDate(now.getDate() + k);
+      const day = S.days[wdIdx(d)]; if (!day.on) continue;
+      const [h, m] = parseT(day.t); d.setHours(h, m, 0, 0);
+      if (d > now) { best = d; break; }
+    }
+    if (snoozeAt && (!best || snoozeAt < best.getTime())) return { at: new Date(snoozeAt), snooze: true };
+    return best ? { at: best, snooze: false } : null;
+  }
+  function nextText(now) {
+    const n = nextAlarm(now);
+    if (!n) return { html: "켜진 요일이 없어요. 알람 설정에서 요일을 켜 주세요.", n };
+    const diff = Math.ceil((n.at - now) / 60000), dh = Math.floor(diff / 60), dm = diff % 60;
+    const left = dh ? `${dh}시간 ${dm}분 후` : `${Math.max(dm, 1)}분 후`;
+    const when = n.snooze ? "스누즈" : (ymd(n.at) === ymd(now) ? "오늘" : DAY_FULL[wdIdx(n.at)]);
+    return { html: `${when} <b>${fmt(n.at.getHours(), n.at.getMinutes())}</b> · ${left}`, n };
+  }
+
+  // ---------- screens ----------
+  function show() {
+    $("scr-setup").hidden = view !== "setup";
+    $("scr-on").hidden = view !== "on";
+    $("ring").hidden = !ringing;
+    $("arm").textContent = armed ? "시계 화면으로" : "알람 켜기";
+    $("scr-setup").className = "setup " + S.layout;
+    tick();
+  }
+  function armOn() {
+    ensureAudio(); armed = true; lastCheck = Date.now(); keepAwake();
+    S.wasArmed = true; save(); view = "on"; $("scr-on").classList.remove("dim"); show();
+  }
+  function armOff() {
+    if (ringing) dismiss();
+    armed = false; snoozeAt = null; S.wasArmed = false; save();
+    try { wake && wake.release(); } catch (e) {} wake = null;
+    stopSleep(true); view = "setup"; show();
+  }
+
+  function renderRows() {
+    const today = wdIdx(new Date());
+    $("rows").innerHTML = S.days.map((d, i) => {
+      const [h, m] = parseT(d.t), f = fmt(h, m, true);
+      return `<div class="row ${d.on ? "" : "off"} ${i >= 5 ? "weekend" : ""} ${i === today ? "today" : ""}">
+        <span class="day">${DAYS[i]}</span>
+        <button class="t" data-edit="${i}" id="t-${i}" aria-label="${DAY_FULL[i]} 알람 시간 바꾸기">${f.ap ? `<span class="ap">${f.ap}</span>` : ""}${f.hm}</button>
+        <label class="switch"><input type="checkbox" id="on-${i}" data-on="${i}" ${d.on ? "checked" : ""} aria-label="${DAY_FULL[i]} 알람"><span></span></label>
+      </div>`;
+    }).join("");
+  }
+
+  function tick() {
+    const now = new Date();
+    if (view === "setup") {
+      $("setup-now").textContent = `${fmt(now.getHours(), now.getMinutes())}:${pad(now.getSeconds())}`;
+      const nt = nextText(now);
+      $("setup-status").innerHTML = armed
+        ? `<span class="pill">알람 켜짐</span> 다음 알람 ${nt.html}`
+        : `<span class="pill dim">알람 꺼짐</span> ${S.wasArmed ? "페이지를 다시 열었어요. 알람 켜기를 눌러 주세요." : "시간을 정하면 바로 알람이 켜져요."}`;
+    } else {
+      $("on-clock").innerHTML = clockHTML(now);
+      $("on-date").textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${DAY_FULL[wdIdx(now)]}`;
+      const nt = nextText(now);
+      $("on-next").innerHTML = nt.n ? `${nt.n.snooze ? "스누즈 중 · " : "다음 알람 · "}${nt.html}` : nt.html;
+      $("on-pill").textContent = snoozeAt ? "스누즈 중" : "알람 켜짐";
+    }
+    if (sleep) {
+      const left = Math.max(0, sleep.endAt - Date.now()), m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+      $("sleep-left").textContent = `${m}:${pad(s)}`;
+      $("on-sleep").textContent = `${SLEEP_NAMES[sleep.kind]} 재생 중`;
+    } else { $("sleep-left").textContent = ""; $("on-sleep").textContent = ""; }
+    if (ringing) $("ring-time").innerHTML = clockHTML(now);
+    document.title = ringing ? "⏰ 알람!" : "일곱 개의 아침";
+  }
+
+  // ---------- audio ----------
+  let ctx = null, master = null, alarmGain = null, alarmTimer = null, fileEl = null, fileSrc = null, fileURL = null;
+  function ensureAudio() {
+    if (ctx) { if (ctx.state === "suspended") ctx.resume(); return; }
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.connect(ctx.destination);
+  }
+  function bell(t, freq, dur, amp, out, partials = [[1, 1], [2.01, .35], [3, .12]]) {
+    partials.forEach(([mult, a]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = freq * mult;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(amp * a, 0.0002), t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur / mult);
+      o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
+    });
+  }
+  function chirp(t, f0, f1, dur, amp, out) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + dur * .2); g.gain.linearRampToValueAtTime(0, t + dur);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + .02);
+  }
+  const PATTERNS = {
+    chime: { len: 2.6, play(t, o) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => bell(t + i * .24, f, 1.6, .28, o)); } },
+    bell: { len: 1.2, play(t, o) {
+      for (let i = 0; i < 14; i++) bell(t + i * .055, i % 2 ? 2350 : 2480, .12, .16, o, [[1, 1], [1.5, .4], [2.7, .2]]); } },
+    beep: { len: 1.4, play(t, o) {
+      for (let i = 0; i < 4; i++) {
+        const os = ctx.createOscillator(), g = ctx.createGain(), s = t + i * .17;
+        os.type = "square"; os.frequency.value = 1320;
+        g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(.08, s + .005);
+        g.gain.setValueAtTime(.08, s + .08); g.gain.linearRampToValueAtTime(0, s + .09);
+        os.connect(g).connect(o); os.start(s); os.stop(s + .1);
+      } } },
+    musicbox: { len: 3.2, play(t, o) {
+      [1174.66, 987.77, 880, 987.77, 1318.51, 1174.66, 987.77, 783.99].forEach((f, i) =>
+        bell(t + i * .34, f, 2.2, .22, o, [[1, 1], [2.76, .18], [5.4, .06]])); } },
+    birds: { len: 2.4, play(t, o) {
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) { const s = t + Math.random() * 2; chirp(s, 2600 + Math.random() * 1500, 4200 + Math.random() * 1500, .08 + Math.random() * .06, .12, o); chirp(s + .14, 3800, 2900, .1, .08, o); }
+    } }
+  };
+  function startAlarmSound(fadeIn) {
+    ensureAudio(); stopAlarmSound();
+    alarmGain = ctx.createGain(); alarmGain.connect(master);
+    const vol = S.volume / 100, now = ctx.currentTime;
+    if (fadeIn) { alarmGain.gain.setValueAtTime(vol * .06, now); alarmGain.gain.linearRampToValueAtTime(vol, now + 30); }
+    else alarmGain.gain.setValueAtTime(vol, now);
+    if (S.sound === "file" && fileEl) {
+      if (!fileSrc) fileSrc = ctx.createMediaElementSource(fileEl);
+      fileSrc.disconnect(); fileSrc.connect(alarmGain);
+      fileEl.currentTime = 0; fileEl.loop = true; fileEl.play().catch(() => {});
+      return;
+    }
+    const p = PATTERNS[S.sound] || PATTERNS.chime, g = alarmGain;
+    let next = ctx.currentTime + .05;
+    const step = () => { while (next < ctx.currentTime + 1.5) { p.play(next, g); next += p.len; } };
+    step(); alarmTimer = setInterval(step, 400);
+  }
+  function stopAlarmSound() {
+    clearInterval(alarmTimer); alarmTimer = null;
+    if (fileEl) fileEl.pause();
+    if (alarmGain) { const g = alarmGain; g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0, ctx.currentTime, .05); setTimeout(() => g.disconnect(), 400); alarmGain = null; }
+  }
+
+  // ---------- sleep music ----------
+  const SLEEP_NAMES = { rain: "빗소리", storm: "폭풍우 밤", stream: "시냇물", waves: "파도", fire: "모닥불", train: "기차", forest: "한밤의 숲", chimes: "풍경", lullaby: "자장가 오르골", musicbox: "음악상자", noise: "잔잔한 소음" };
+  const bufCache = {};
+  function noiseBuffer(kind, secs = 8) {
+    const k = kind + secs; if (bufCache[k]) return bufCache[k];
+    const n = ctx.sampleRate * secs, buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
+    for (let i = 0; i < n; i++) {
+      const w = Math.random() * 2 - 1;
+      if (kind === "white") d[i] = w * .5;
+      else if (kind === "brown") { last = (last + .02 * w) / 1.02; d[i] = last * 3.2; }
+      else {
+        b0 = .99886 * b0 + w * .0555179; b1 = .99332 * b1 + w * .0750759; b2 = .969 * b2 + w * .153852;
+        b3 = .8665 * b3 + w * .3104856; b4 = .55 * b4 + w * .5329522; b5 = -.7616 * b5 - w * .016898;
+        d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * .5362) * .11; b6 = w * .115926;
+      }
+    }
+    const x = Math.floor(ctx.sampleRate * .25);
+    for (let i = 0; i < x; i++) { const a = i / x; d[i] = d[i] * a + d[n - x + i] * (1 - a); }
+    return (bufCache[k] = buf);
+  }
+  // one looping noise bed through a filter chain
+  function bed(env, kind, secs, filters, gain) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuffer(kind, secs); s.loop = true;
+    let node = s;
+    filters.forEach(([type, freq, q]) => { const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (q) f.Q.value = q; node.connect(f); node = f; });
+    const g = ctx.createGain(); g.gain.value = gain; node.connect(g).connect(env.out);
+    s.start(); env.nodes.push(s); return { src: s, gain: g, last: node };
+  }
+  function burst(env, t, kind, dur, amp, filters, attack = .003) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuffer(kind, 2);
+    let node = s;
+    filters.forEach(([type, freq, q]) => { const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (q) f.Q.value = q; node.connect(f); node = f; });
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + attack); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    node.connect(g).connect(env.out); s.start(t, Math.random()); s.stop(t + dur + .05);
+  }
+  function every(env, fn, ms) { const id = setInterval(fn, ms); env.timers.push(id); fn(); }
+  function lfo(env, param, rate, depth) {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = rate; g.gain.value = depth;
+    o.connect(g).connect(param); o.start(); env.nodes.push(o);
+  }
+
+  const SLEEP = {
+    rain(e) {
+      bed(e, "white", 7, [["highpass", 900], ["lowpass", 5200]], .3);
+      bed(e, "pink", 9, [["lowpass", 700]], .55);
+      every(e, () => { const t = ctx.currentTime; for (let i = 0; i < 6; i++) burst(e, t + Math.random() * .3, "white", .02, .06 * Math.random(), [["bandpass", 3000 + Math.random() * 3000, 4]]); }, 300);
+    },
+    storm(e) {
+      bed(e, "white", 7, [["highpass", 700], ["lowpass", 4500]], .4);
+      bed(e, "pink", 9, [["lowpass", 600]], .6);
+      bed(e, "brown", 10, [["lowpass", 140]], .5);
+      let nextThunder = ctx.currentTime + 6;
+      every(e, () => {
+        if (ctx.currentTime < nextThunder) return;
+        const t = ctx.currentTime + .05;
+        burst(e, t, "brown", 4.5, 1.1, [["lowpass", 220]], .35);
+        burst(e, t + .1, "pink", 1.6, .25, [["lowpass", 900]], .05);
+        nextThunder = t + 14 + Math.random() * 26;
+      }, 1000);
+    },
+    stream(e) {
+      const a = bed(e, "pink", 8, [["bandpass", 1600, .8]], .9);
+      const b = bed(e, "white", 6, [["bandpass", 3200, 1.2]], .18);
+      lfo(e, a.last.frequency, .35, 500); lfo(e, b.last.frequency, .52, 900);
+      every(e, () => { const t = ctx.currentTime; for (let i = 0; i < 3; i++) chirpBubble(e, t + Math.random() * .4); }, 420);
+    },
+    waves(e) {
+      const a = bed(e, "brown", 10, [["lowpass", 1100]], .45);
+      lfo(e, a.gain.gain, .09, .4);
+      const b = bed(e, "white", 6, [["highpass", 2000], ["lowpass", 6000]], .05);
+      lfo(e, b.gain.gain, .09, .05);
+    },
+    fire(e) {
+      bed(e, "brown", 10, [["lowpass", 450]], .6);
+      bed(e, "pink", 8, [["bandpass", 900, .7]], .12);
+      every(e, () => {
+        const t = ctx.currentTime;
+        if (Math.random() < .55) burst(e, t + Math.random() * .1, "white", .015 + Math.random() * .03, .15 + Math.random() * .35, [["highpass", 1500 + Math.random() * 2500]], .001);
+        if (Math.random() < .08) for (let i = 0; i < 5; i++) burst(e, t + i * .03 + Math.random() * .02, "white", .012, .2, [["highpass", 2500]], .001);
+      }, 90);
+    },
+    train(e) {
+      bed(e, "brown", 10, [["lowpass", 260]], .7);
+      bed(e, "pink", 8, [["bandpass", 500, .6]], .12);
+      let beat = ctx.currentTime + .1;
+      every(e, () => {
+        while (beat < ctx.currentTime + 1) {
+          [0, .16, 1.06, 1.22].forEach((o, i) => burst(e, beat + o, "pink", .2, i % 2 ? .45 : .6, [["bandpass", 180 + (i % 2) * 60, 2]], .004));
+          beat += 1.9;
+        }
+      }, 300);
+    },
+    forest(e) {
+      bed(e, "pink", 9, [["lowpass", 380]], .25);
+      every(e, () => {
+        const t = ctx.currentTime + Math.random() * .4;
+        if (Math.random() < .75) for (let i = 0; i < 3; i++) {
+          const o = ctx.createOscillator(), g = ctx.createGain(), s = t + i * .055;
+          o.frequency.value = 4400 + Math.random() * 200;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(.035, s + .01); g.gain.linearRampToValueAtTime(0, s + .035);
+          o.connect(g).connect(e.out); o.start(s); o.stop(s + .05);
+        }
+        if (Math.random() < .03) { chirp(t, 420, 360, .35, .07, e.out); chirp(t + .5, 420, 360, .45, .07, e.out); } // owl
+      }, 700);
+    },
+    chimes(e) {
+      bed(e, "pink", 9, [["lowpass", 500]], .18);
+      const notes = [1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];
+      every(e, () => { if (Math.random() < .6) bell(ctx.currentTime + Math.random() * .3, notes[Math.floor(Math.random() * notes.length)], 4, .12, e.out, [[1, 1], [2.76, .25], [5.4, .08]]); }, 650);
+    },
+    lullaby(e) {
+      // an original, slow pentatonic lullaby
+      const mel = [659.25, 587.33, 523.25, 587.33, 659.25, 659.25, 659.25, 0, 587.33, 587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 0];
+      let t0 = ctx.currentTime + .1, i = 0;
+      every(e, () => {
+        while (t0 < ctx.currentTime + 1.5) {
+          const f = mel[i % mel.length]; if (f) bell(t0, f, 2.5, .2, e.out, [[1, 1], [2.76, .15], [5.4, .05]]);
+          if (i % 4 === 0) bell(t0, [261.63, 196, 220, 174.61][(i / 4) % 4], 3, .08, e.out);
+          t0 += .55; i++;
+        }
+      }, 400);
+    },
+    musicbox(e) {
+      // an original waltz on a wind-up music box: bass + arpeggio + melody, with the comb's soft clicks
+      bed(e, "pink", 9, [["lowpass", 400]], .07);
+      const BEAT = .48;
+      const chords = [[130.81, 261.63, 329.63, 392], [110, 220, 261.63, 329.63], [87.31, 174.61, 220, 261.63], [98, 196, 246.94, 293.66],
+                      [130.81, 261.63, 329.63, 392], [87.31, 174.61, 220, 261.63], [98, 196, 246.94, 293.66], [130.81, 261.63, 329.63, 392]];
+      const melody = [[783.99, 659.25, 698.46], [659.25, 523.25, 587.33], [698.46, 880, 783.99], [587.33, 493.88, 523.25],
+                      [659.25, 783.99, 1046.5], [880, 698.46, 659.25], [587.33, 659.25, 493.88], [523.25, 0, 0]];
+      const tine = [[1, 1], [3.0, .12], [5.8, .05]];
+      const pluck = (t, f, amp) => {
+        bell(t, f, 2.2, amp, e.out, tine);
+        burst(e, t, "white", .006, .03, [["highpass", 4500]], .001);
+      };
+      let t0 = ctx.currentTime + .1, step = 0;
+      every(e, () => {
+        while (t0 < ctx.currentTime + 1.5) {
+          const bar = Math.floor(step / 3) % chords.length, beat = step % 3, ch = chords[bar];
+          if (beat === 0) bell(t0, ch[0], 3, .1, e.out, tine);
+          else pluck(t0, ch[beat] * 2, .07);
+          const m = melody[bar][beat]; if (m) pluck(t0 + .01, m, .17);
+          // the spring slows a touch at the end of each 8-bar phrase
+          t0 += BEAT * (bar === 7 ? 1.25 : 1); step++;
+        }
+      }, 400);
+    },
+    noise(e) { bed(e, "pink", 8, [["lowpass", 2400]], .6); }
+  };
+  function chirpBubble(e, t) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = 500 + Math.random() * 900;
+    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.8, t + .05);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.025, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + .06);
+    o.connect(g).connect(e.out); o.start(t); o.stop(t + .08);
+  }
+
+  let sleep = null;
+  function startSleep(kind, minutes) {
+    ensureAudio(); stopSleep(true);
+    // out carries the fade-in/fade-out envelope; level follows the sleep volume bar live
+    const level = ctx.createGain(); level.gain.value = S.sleepVol / 100; level.connect(master);
+    const out = ctx.createGain(); out.connect(level);
+    const vol = .9, now = ctx.currentTime;
+    out.gain.setValueAtTime(0, now); out.gain.linearRampToValueAtTime(vol, now + 4);
+    const env = { out, nodes: [], timers: [] };
+    (SLEEP[kind] || SLEEP.rain)(env);
+    out.gain.setValueAtTime(vol, now + Math.max(minutes * 60 - 30, 4));
+    out.gain.linearRampToValueAtTime(0, now + minutes * 60);
+    sleep = { ...env, level, kind, endAt: Date.now() + minutes * 60000, timer: setTimeout(() => stopSleep(true), minutes * 60000 + 300) };
+    syncSleepSheet(); tick();
+  }
+  function stopSleep(immediate) {
+    if (!sleep) return;
+    const s = sleep; sleep = null; clearTimeout(s.timer); s.timers.forEach(clearInterval);
+    const t = ctx.currentTime; s.out.gain.cancelScheduledValues(t); s.out.gain.setTargetAtTime(0, t, immediate ? .05 : .6);
+    setTimeout(() => { s.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); s.out.disconnect(); s.level.disconnect(); }, immediate ? 300 : 2500);
+    syncSleepSheet(); tick();
+  }
+
+  // ---------- ringing ----------
+  function ring(label) {
+    if (ringing) return;
+    ringing = true;
+    if (sleep) stopSleep(true);
+    $("ring-lab").textContent = label;
+    $("ring-time").innerHTML = clockHTML(new Date());
+    $("snooze-btn").textContent = `스누즈 ${S.snooze}분`;
+    $("ring").classList.toggle("flash", S.flash);
+    show(); $("snooze-btn").focus();
+    startAlarmSound(S.fade);
+    try { S.flash && navigator.vibrate && navigator.vibrate([600, 400, 600, 400, 600]); } catch (e) {}
+    clearTimeout(ring.auto);
+    ring.auto = setTimeout(() => dismiss(true), 10 * 60000);
+  }
+  function dismiss(toSetup) {
+    ringing = false; clearTimeout(ring.auto); stopAlarmSound();
+    view = toSetup || !armed ? "setup" : "on";
+    show();
+  }
+  // snooze keeps the clock screen (another ring is coming); stopping goes to alarm setup
+  $("snooze-btn").onclick = () => { snoozeAt = Date.now() + S.snooze * 60000; dismiss(false); };
+  $("stop-btn").onclick = () => { snoozeAt = null; dismiss(true); };
+
+  function check() {
+    const now = Date.now();
+    if (snoozeAt && snoozeAt > lastCheck && snoozeAt <= now) { snoozeAt = null; ring("스누즈 알람"); }
+    for (let k = -1; k <= 0; k++) {
+      const d = new Date(now); d.setDate(d.getDate() + k);
+      const day = S.days[wdIdx(d)]; if (!day.on) continue;
+      const [h, m] = parseT(day.t); d.setHours(h, m, 0, 0);
+      const key = `${ymd(d)} ${day.t}`, t = d.getTime();
+      if (t > lastCheck && t <= now && !fired.has(key) && now - t < 10 * 60000) { fired.add(key); ring(`${DAY_FULL[wdIdx(d)]} 알람`); }
+    }
+    lastCheck = now;
+  }
+
+  // ---------- setup interactions ----------
+  let editing = 0;
+  const openSheet = id => { $(id).hidden = false; const f = $(id).querySelector("input, button"); f && f.focus(); };
+  const closeSheet = id => { $(id).hidden = true; };
+  $("rows").addEventListener("click", e => {
+    const b = e.target.closest("[data-edit]"); if (!b) return;
+    editing = +b.dataset.edit;
+    $("edit-title").textContent = `${DAY_FULL[editing]} 알람`;
+    $("edit-time").value = S.days[editing].t;
+    openSheet("edit");
+  });
+  $("rows").addEventListener("change", e => {
+    const i = e.target.dataset.on; if (i === undefined) return;
+    S.days[+i].on = e.target.checked; save(); renderRows(); tick();
+  });
+  document.querySelectorAll("[data-apply]").forEach(b => b.onclick = () => {
+    const t = $("edit-time").value || "07:00";
+    const which = { one: [editing], weekdays: [0, 1, 2, 3, 4], weekend: [5, 6], all: [0, 1, 2, 3, 4, 5, 6] }[b.dataset.apply];
+    which.forEach(i => { S.days[i].t = t; S.days[i].on = true; });
+    save(); renderRows(); closeSheet("edit");
+    armOn(); // setting an alarm turns the alarm on and shows the clock
+  });
+
+  function syncOptions() {
+    $("sound").value = S.sound; $("volume").value = S.volume; $("volume-val").textContent = S.volume + "%";
+    $("snooze").value = S.snooze; $("snooze-val").textContent = S.snooze + "분";
+    $("fade").checked = S.fade; $("flash").checked = S.flash; $("h24").checked = S.h24; $("layout").value = S.layout;
+  }
+  $("sound").onchange = e => {
+    if (e.target.value === "file") { $("sound-file").click(); if (!fileEl) e.target.value = S.sound; return; }
+    S.sound = e.target.value; save();
+  };
+  $("sound-file").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (fileURL) URL.revokeObjectURL(fileURL);
+    fileURL = URL.createObjectURL(f);
+    if (!fileEl) fileEl = new Audio();
+    fileEl.src = fileURL; S.sound = "file"; $("sound").value = "file";
+    $("file-row").hidden = false; $("file-name").textContent = `${f.name} · 페이지를 다시 열면 다시 골라야 해요`;
+  };
+  $("volume").oninput = e => { S.volume = +e.target.value; $("volume-val").textContent = S.volume + "%"; save(); };
+  $("snooze").oninput = e => { S.snooze = +e.target.value; $("snooze-val").textContent = S.snooze + "분"; save(); };
+  $("fade").onchange = e => { S.fade = e.target.checked; save(); };
+  $("flash").onchange = e => { S.flash = e.target.checked; save(); };
+  $("h24").onchange = e => { S.h24 = e.target.checked; save(); renderRows(); tick(); };
+  $("layout").onchange = e => { S.layout = e.target.value; save(); show(); };
+  let previewing = false;
+  $("test").onclick = () => {
+    ensureAudio();
+    if (previewing) { stopAlarmSound(); previewing = false; $("test").textContent = "알람 미리 듣기"; return; }
+    startAlarmSound(false); previewing = true; $("test").textContent = "미리 듣기 멈추기";
+    setTimeout(() => { if (previewing) $("test").click(); }, 6000);
+  };
+  $("arm").onclick = () => { if (previewing) $("test").click(); armOn(); };
+
+  // ---------- alarm-on interactions ----------
+  $("face").onclick = () => $("scr-on").classList.toggle("dim");
+  $("to-setup").onclick = () => { view = "setup"; show(); };
+  $("disarm").onclick = armOff;
+
+  function pick(groupId, attr, val) {
+    $(groupId).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset[attr] === String(val))));
+  }
+  const SLEEP_BLOCK_MIN = 5;
+  // minutes until the next ring, or Infinity when no alarm is armed
+  function minsToAlarm() {
+    if (!armed) return Infinity;
+    const n = nextAlarm(); return n ? (n.at - Date.now()) / 60000 : Infinity;
+  }
+  // the duration actually played, or 0 when sleep music should not start
+  function sleepMinutes() {
+    const left = minsToAlarm();
+    if (left <= SLEEP_BLOCK_MIN) return 0;
+    let m = S.sleepMin === "until" ? (isFinite(left) ? Math.floor(left - SLEEP_BLOCK_MIN) : 30) : +S.sleepMin;
+    return Math.max(1, m || 30);
+  }
+  $("sleep-vol").oninput = e => {
+    S.sleepVol = +e.target.value; $("sleep-vol-val").textContent = S.sleepVol + "%"; save();
+    if (sleep) sleep.level.gain.setTargetAtTime(S.sleepVol / 100, ctx.currentTime, .05);
+  };
+  function syncSleepSheet() {
+    pick("sleep-sounds", "s", S.sleepSound); pick("sleep-mins", "m", S.sleepMin);
+    if (document.activeElement !== $("sleep-vol")) $("sleep-vol").value = S.sleepVol;
+    $("sleep-vol-val").textContent = S.sleepVol + "%";
+    const presets = [...$("sleep-mins").querySelectorAll("button")].map(b => b.dataset.m);
+    const custom = !presets.includes(String(S.sleepMin));
+    $("sleep-custom").classList.toggle("active", custom);
+    if (custom && document.activeElement !== $("sleep-custom")) $("sleep-custom").value = S.sleepMin;
+    const left = minsToAlarm();
+    $("chip-until").hidden = !isFinite(left);
+    let warn = "";
+    if (left <= SLEEP_BLOCK_MIN) warn = `알람까지 ${Math.max(0, Math.ceil(left))}분밖에 남지 않아서 수면 사운드를 재생하지 않아요.`;
+    else if (isFinite(left) && S.sleepMin !== "until" && +S.sleepMin > left - SLEEP_BLOCK_MIN)
+      warn = `알람이 울리면 수면 사운드는 자동으로 멈춰요.`;
+    $("sleep-warn").hidden = !warn; $("sleep-warn").textContent = warn;
+    $("sleep-go").disabled = left <= SLEEP_BLOCK_MIN;
+    $("sleep-go").textContent = sleep ? "다시 시작" : "재생";
+    $("sleep-stop").hidden = !sleep;
+  }
+  $("sleep-sounds").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.sleepSound = b.dataset.s; save(); syncSleepSheet(); };
+  $("sleep-mins").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.sleepMin = b.dataset.m === "until" ? "until" : +b.dataset.m; $("sleep-custom").value = ""; save(); syncSleepSheet();
+  };
+  $("sleep-custom").oninput = e => {
+    const v = Math.round(+e.target.value); if (!v || v < 1) return;
+    S.sleepMin = Math.min(v, 600); save(); syncSleepSheet();
+  };
+  $("sleep-go").onclick = () => {
+    const m = sleepMinutes(); if (!m) { syncSleepSheet(); return; }
+    startSleep(S.sleepSound, m); closeSheet("sleep"); $("scr-on").classList.add("dim");
+  };
+  $("sleep-stop").onclick = () => stopSleep(false);
+  $("open-sleep").onclick = () => { syncSleepSheet(); openSheet("sleep"); };
+
+  document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => closeSheet(b.dataset.close));
+  document.querySelectorAll(".scrim").forEach(s => s.addEventListener("click", e => { if (e.target === s) s.hidden = true; }));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".scrim").forEach(s => s.hidden = true); });
+
+  let wake = null;
+  async function keepAwake() { try { wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && armed) keepAwake(); });
+
+  // ---------- backgrounds ----------
+  const PHOTO_KEY = "seven-mornings-photo";
+  let photoURL = null;
+  try { photoURL = localStorage.getItem(PHOTO_KEY); } catch (e) {}
+  const BGS = {
+    night:  { name: "밤", css: "var(--ink)", sw: "#10161a", shade: 0 },
+    dawn:   { name: "새벽", css: "linear-gradient(180deg,#0f1626 0%,#24223d 40%,#5a3846 72%,#b0674a 100%)", shade: .22 },
+    dusk:   { name: "노을", css: "linear-gradient(200deg,#1b1530 0%,#3d2546 35%,#7a3c47 65%,#d07a4c 100%)", shade: .28 },
+    stars:  { name: "별밤", css: "radial-gradient(ellipse at 50% 120%,#1f2c48 0%,#0d121c 60%,#080b11 100%)", shade: 0, anim: "stars" },
+    rain:   { name: "비 오는 밤", css: "linear-gradient(180deg,#0e171e 0%,#15222b 60%,#1b2a33 100%)", shade: 0, anim: "rain" },
+    forest: { name: "반딧불 숲", css: "linear-gradient(180deg,#0b1513 0%,#11221c 55%,#183024 100%)", shade: 0, anim: "fireflies" },
+    photo:  { name: "내 사진", css: null, shade: .5 }
+  };
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function renderBgPicks() {
+    $("bg-picks").innerHTML = Object.entries(BGS).map(([k, b]) => {
+      const sw = k === "photo"
+        ? (photoURL ? `<i style="background-image:url('${photoURL}')"></i>` : `<i class="plus">+</i>`)
+        : `<i style="background:${b.sw || b.css}"></i>`;
+      return `<button class="bgopt" data-bg="${k}" id="bg-${k}" aria-pressed="${S.bg === k}">${sw}${b.name}</button>`;
+    }).join("");
+    $("bg-name").textContent = (BGS[S.bg] || BGS.night).name;
+  }
+  function applyBg() {
+    if (S.bg === "photo" && !photoURL) S.bg = "night";
+    const b = BGS[S.bg] || BGS.night, el = $("bg");
+    el.style.background = b.css || `#000 url('${photoURL}') center / cover no-repeat`;
+    el.style.setProperty("--shade", b.shade);
+    startAnim(b.anim);
+    renderBgPicks();
+  }
+  $("bg-picks").onclick = e => {
+    const b = e.target.closest("[data-bg]"); if (!b) return;
+    if (b.dataset.bg === "photo" && (!photoURL || S.bg === "photo")) { $("bg-file").click(); return; }
+    S.bg = b.dataset.bg; save(); applyBg();
+  };
+  // shrink the photo so it fits in browser storage
+  $("bg-file").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const img = new Image(), url = URL.createObjectURL(f);
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      photoURL = c.toDataURL("image/jpeg", .8); URL.revokeObjectURL(url);
+      let kept = true; try { localStorage.setItem(PHOTO_KEY, photoURL); } catch (err) { kept = false; }
+      $("bg-note").hidden = kept; $("bg-note").textContent = "사진이 커서 저장하지 못했어요. 페이지를 다시 열면 다시 골라야 해요.";
+      S.bg = "photo"; save(); applyBg();
+    };
+    img.onerror = () => { $("bg-note").hidden = false; $("bg-note").textContent = "이 파일은 열 수 없어요. JPG나 PNG 사진을 골라 주세요."; };
+    img.src = url; e.target.value = "";
+  };
+
+  // animated layers: stars, rain, fireflies
+  const cv = $("bg-canvas"), g2 = cv.getContext("2d");
+  let animKind = null, raf = 0, parts = [], W = 0, H = 0, lastFrame = 0;
+  function sizeCanvas() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function seed() {
+    const R = Math.random;
+    if (animKind === "stars") parts = Array.from({ length: Math.round(W * H / 5000) }, () => ({ x: R() * W, y: R() * H * .85, r: R() * 1.3 + .3, p: R() * 6.28, s: R() * 1.5 + .5 }));
+    else if (animKind === "rain") parts = Array.from({ length: Math.round(W * H / 6000) }, () => ({ x: R() * W, y: R() * H, l: R() * 14 + 10, v: R() * 7 + 9 }));
+    else if (animKind === "fireflies") parts = Array.from({ length: Math.round(W * H / 30000) + 12 }, () => ({ x: R() * W, y: H * .3 + R() * H * .7, a: R() * 6.28, v: R() * .4 + .15, p: R() * 6.28 }));
+    else parts = [];
+  }
+  let shoot = null;
+  function frame(t) {
+    raf = requestAnimationFrame(frame);
+    if (t - lastFrame < 33) return; // ~30fps is plenty for a backdrop
+    lastFrame = t; draw(t / 1000);
+  }
+  function draw(s) {
+    g2.clearRect(0, 0, W, H);
+    if (animKind === "stars") {
+      for (const p of parts) {
+        const a = .35 + .65 * (.5 + .5 * Math.sin(s * p.s + p.p));
+        g2.fillStyle = `rgba(233,227,213,${a})`; g2.beginPath(); g2.arc(p.x, p.y, p.r, 0, 6.28); g2.fill();
+      }
+      if (!reduceMotion) {
+        if (!shoot && Math.random() < .004) shoot = { x: Math.random() * W * .7, y: Math.random() * H * .3, t: 0 };
+        if (shoot) {
+          shoot.t += .03; const x = shoot.x + shoot.t * 420, y = shoot.y + shoot.t * 160;
+          const gr = g2.createLinearGradient(x - 90, y - 34, x, y); gr.addColorStop(0, "rgba(242,166,94,0)"); gr.addColorStop(1, "rgba(255,236,210,.9)");
+          g2.strokeStyle = gr; g2.lineWidth = 1.6; g2.beginPath(); g2.moveTo(x - 90, y - 34); g2.lineTo(x, y); g2.stroke();
+          if (shoot.t > 1) shoot = null;
+        }
+      }
+    } else if (animKind === "rain") {
+      g2.strokeStyle = "rgba(170,195,210,.28)"; g2.lineWidth = 1;
+      g2.beginPath();
+      for (const p of parts) {
+        g2.moveTo(p.x, p.y); g2.lineTo(p.x - p.l * .18, p.y + p.l);
+        if (!reduceMotion) { p.y += p.v; p.x -= p.v * .18; if (p.y > H) { p.y = -p.l; p.x = Math.random() * (W + 60); } }
+      }
+      g2.stroke();
+    } else if (animKind === "fireflies") {
+      for (const p of parts) {
+        if (!reduceMotion) { p.a += (Math.random() - .5) * .3; p.x += Math.cos(p.a) * p.v; p.y += Math.sin(p.a) * p.v * .6; if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10; if (p.y < H * .2) p.a = 1.57; if (p.y > H) p.a = -1.57; }
+        const glow = .25 + .75 * Math.max(0, Math.sin(s * 1.3 + p.p));
+        const gr = g2.createRadialGradient(p.x, p.y, 0, p.x, p.y, 14);
+        gr.addColorStop(0, `rgba(242,200,110,${.85 * glow})`); gr.addColorStop(.25, `rgba(242,166,94,${.35 * glow})`); gr.addColorStop(1, "rgba(242,166,94,0)");
+        g2.fillStyle = gr; g2.beginPath(); g2.arc(p.x, p.y, 14, 0, 6.28); g2.fill();
+      }
+    }
+  }
+  function startAnim(kind) {
+    cancelAnimationFrame(raf); animKind = kind || null; sizeCanvas(); seed();
+    g2.clearRect(0, 0, W, H);
+    if (!animKind) return;
+    if (reduceMotion && animKind !== "fireflies") { draw(0); return; }
+    if (!document.hidden) raf = requestAnimationFrame(frame);
+  }
+  addEventListener("resize", () => { if (animKind) { sizeCanvas(); seed(); if (reduceMotion) draw(0); } });
+  document.addEventListener("visibilitychange", () => {
+    cancelAnimationFrame(raf);
+    if (!document.hidden && animKind && !(reduceMotion && animKind !== "fireflies")) raf = requestAnimationFrame(frame);
+  });
+
+  // ---------- boot ----------
+  syncOptions(); renderRows(); applyBg(); show();
+  let today = wdIdx(new Date());
+  setInterval(() => {
+    tick();
+    if (armed) check(); else lastCheck = Date.now();
+    if (!$("sleep").hidden) syncSleepSheet();
+    const t = wdIdx(new Date()); if (t !== today) { today = t; renderRows(); }
+  }, 500);
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
