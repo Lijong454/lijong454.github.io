@@ -90,6 +90,9 @@ label.drop input{position:absolute;width:1px;height:1px;opacity:0}
 .klabel{font:600 14px var(--f-ko)}
 .keybody input,.keybody select{flex:1 1 240px;min-width:0;width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:16px var(--f-body);padding:8px 10px}
 .keybody .row input{width:auto}
+.gsetup{border-top:1.5px solid var(--line);padding-top:10px}
+.gsetup summary{cursor:pointer;font:600 15px var(--f-ko);display:flex;gap:10px;align-items:center;min-height:32px}
+.gsetup code{font:13px ui-monospace,Menlo,monospace;background:var(--chip);border-radius:6px;padding:1px 6px;overflow-wrap:anywhere;cursor:copy}
 .drive{display:grid;gap:10px}
 .steps-plain{margin:0;padding-left:20px;display:grid;gap:6px;font:15px var(--f-ko)}
 .noclaude{margin:0 0 10px;background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:12px;padding:10px 14px;font:14.5px var(--f-ko)}
@@ -640,14 +643,134 @@ function drivePickerGuide(){
   if(/Android/i.test(ua))return ["아래 <b>드라이브에서 PDF 고르기</b>를 눌러요.","파일 선택 창의 왼쪽 메뉴(≡)에서 <b>Drive</b>를 골라 PDF를 선택해요."];
   return ["컴퓨터에 <b>Google Drive 데스크톱 앱</b>을 설치하면 드라이브가 ‘Google Drive’ 폴더로 보여요. (설치 주소: google.com/drive/download)","아래 <b>드라이브에서 PDF 고르기</b>를 누르고, 파일 창 왼쪽의 <b>Google Drive</b>(Windows는 ‘G:’ 드라이브) 폴더에서 PDF를 골라요.","데스크톱 앱이 없으면 drive.google.com에서 PDF를 내려받은 뒤 위 상자에 올려 주세요."];
 }
+/* ---------- Google Picker (GitHub Pages and other https sites) ---------- */
+const GCFG_KEY="readalong-gdrive-v1", GTOK_KEY="readalong-gtoken-v1", GSTATE_KEY="readalong-gstate-v1";
+const DRIVE_SCOPE="https://www.googleapis.com/auth/drive.file";
+/* The site owner can fill these in so visitors need no setup. Values set in the page override them. */
+const GDRIVE_DEFAULT={clientId:"",apiKey:"",appId:""};
+const canPicker=standalone&&location.protocol==="https:";
+const isHomeScreen=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
+let gcfg=Object.assign({},GDRIVE_DEFAULT,load(GCFG_KEY,{}));
+function gReady(){return !!(gcfg.clientId&&gcfg.apiKey&&gcfg.appId)}
+function redirectUri(){return location.origin+location.pathname.replace(/index\.html$/,"")}
+function loadScript(src){return new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`)){ok();return}
+  const sc=document.createElement("script");sc.src=src;sc.async=true;sc.onload=()=>ok();sc.onerror=()=>no(new Error("load"));document.head.appendChild(sc)})}
+let pickerLib=null;
+function loadPicker(){return pickerLib||(pickerLib=loadScript("https://apis.google.com/js/api.js").then(()=>new Promise((ok,no)=>gapi.load("picker",{callback:ok,onerror:no}))).catch(e=>{pickerLib=null;throw e}))}
+function savedToken(){try{const t=JSON.parse(sessionStorage.getItem(GTOK_KEY)||"null");if(t&&t.exp>Date.now()+60000)return t.token}catch(e){}return null}
+function keepToken(token,sec){try{sessionStorage.setItem(GTOK_KEY,JSON.stringify({token,exp:Date.now()+(+sec||3600)*1000}))}catch(e){}}
+/* Desktop and Safari: Google's sign-in popup. Home-screen apps on iPhone lose popups, so they sign in by redirect. */
+function getTokenPopup(){
+  return loadScript("https://accounts.google.com/gsi/client").then(()=>new Promise((ok,no)=>{
+    const tc=google.accounts.oauth2.initTokenClient({client_id:gcfg.clientId,scope:DRIVE_SCOPE,
+      callback:r=>{if(r&&r.access_token){keepToken(r.access_token,r.expires_in);ok(r.access_token)}else no({code:r&&r.error||"denied"})},
+      error_callback:e=>no({code:e&&e.type==="popup_closed"?"popup_closed":e&&e.type==="popup_failed_to_open"?"popup_blocked":"denied"})});
+    tc.requestAccessToken({prompt:""});
+  }));
+}
+function signInRedirect(){
+  const state=Math.random().toString(36).slice(2)+Date.now().toString(36);
+  try{localStorage.setItem(GSTATE_KEY,state)}catch(e){}
+  const q=new URLSearchParams({client_id:gcfg.clientId,redirect_uri:redirectUri(),response_type:"token",scope:DRIVE_SCOPE,include_granted_scopes:"true",state});
+  location.assign("https://accounts.google.com/o/oauth2/v2/auth?"+q.toString());
+}
+function readRedirectToken(){ // called once at load
+  if(!/access_token=|error=/.test(location.hash))return null;
+  const h=new URLSearchParams(location.hash.slice(1));let want="";try{want=localStorage.getItem(GSTATE_KEY)||"";localStorage.removeItem(GSTATE_KEY)}catch(e){}
+  history.replaceState(null,"",location.pathname+location.search);
+  if(!want||h.get("state")!==want)return {err:"state"};
+  if(h.get("error"))return {err:h.get("error")};
+  keepToken(h.get("access_token"),h.get("expires_in"));return {ok:true};
+}
+function gErr(e){const c=e&&e.code;
+  if(c==="popup_blocked")return "로그인 창이 막혔어요. 브라우저에서 이 사이트의 팝업을 허용한 뒤 다시 눌러 주세요.";
+  if(c==="popup_closed"||c==="access_denied"||c==="denied")return "구글 로그인을 마치지 않았어요. 다시 누르면 로그인 창이 떠요.";
+  if(c==="state")return "로그인 확인에 실패했어요. ‘드라이브에서 PDF 고르기’를 다시 눌러 주세요.";
+  if(c==="load")return "구글 드라이브 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.";
+  if(c==="dl_403")return "이 파일을 내려받을 권한이 없어요. 설정의 ‘프로젝트 번호’가 맞는지 확인해 주세요.";
+  if(c==="dl_401"){try{sessionStorage.removeItem(GTOK_KEY)}catch(x){}return "구글 로그인이 만료됐어요. 다시 눌러 주세요."}
+  if(c==="dl_big")return "PDF가 너무 커요(30MB 초과). 더 작은 파일을 골라 주세요.";
+  if(c==="not_pdf")return "고른 파일이 PDF가 아니에요.";
+  if(c==="redirect_uri_mismatch"||c==="origin_mismatch")return "구글 설정의 주소가 맞지 않아요. 아래 안내의 ‘승인된 원본/리디렉션 URI’를 다시 확인해 주세요.";
+  return "구글 드라이브와 연결하지 못했어요"+(c?` (오류: ${c})`:"")+". 설정 값을 확인해 주세요.";}
+async function openPicker(){
+  const st=$("#driveState");st.textContent="";$("#upErr").hidden=true;
+  let token=savedToken();
+  try{
+    if(!token){
+      if(isIOS&&isHomeScreen){st.textContent="구글 로그인 화면으로 이동해요…";signInRedirect();return}
+      st.textContent="구글 로그인 창을 여는 중…";
+      token=await getTokenPopup();
+    }
+    st.textContent="드라이브를 여는 중…";
+    await loadPicker();st.textContent="";
+    const view=new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes("application/pdf").setIncludeFolders(true).setMode(google.picker.DocsViewMode.LIST);
+    const pk=new google.picker.PickerBuilder().addView(view).enableFeature(google.picker.Feature.SUPPORT_DRIVES)
+      .setOAuthToken(token).setDeveloperKey(gcfg.apiKey).setAppId(gcfg.appId).setLocale("ko").setTitle("학습실로 가져올 PDF 고르기")
+      .setCallback(d=>{if(d.action===google.picker.Action.PICKED&&d.docs&&d.docs[0])pickerDownload(d.docs[0],token)}).build();
+    pk.setVisible(true);
+  }catch(e){st.textContent="";toastErr(gErr(e&&e.code?e:{code:e&&e.message==="load"?"load":""}))}
+}
+async function pickerDownload(doc,token){
+  const st=$("#driveState");st.textContent=`‘${doc.name}’ 가져오는 중…`;
+  try{
+    if(+doc.sizeBytes>30*1048576)throw{code:"dl_big"};
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.id)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:"Bearer "+token}});
+    if(!r.ok)throw{code:"dl_"+r.status};
+    const bytes=new Uint8Array(await r.arrayBuffer());
+    if(!new TextDecoder("latin1").decode(bytes.slice(0,1024)).includes("%PDF"))throw{code:"not_pdf"};
+    let name=String(doc.name||"drive.pdf");if(!/\.pdf$/i.test(name))name+=".pdf";
+    pick(new File([bytes],name,{type:"application/pdf"}));
+    st.textContent="가져왔어요. 난이도를 고르고 ‘학습 페이지 만들기’를 누르세요.";
+  }catch(e){st.textContent="";toastErr(gErr(e))}
+}
+function gSetupHTML(){
+  const origin=location.origin, uri=redirectUri();
+  return `<details class="gsetup" id="gSetup"${gReady()?"":" open"}><summary>구글 드라이브 연결 설정 <span class="keystate${gReady()?" ok":""}">${gReady()?"설정됨":"처음 한 번 필요"}</span></summary>
+   <ol class="steps-plain">
+    <li><a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud 콘솔</a>에서 새 프로젝트를 만들어요(이름 예: read-along-lab).</li>
+    <li><b>API 및 서비스 › 라이브러리</b>에서 <b>Google Picker API</b>와 <b>Google Drive API</b>를 각각 ‘사용’으로 바꿔요.</li>
+    <li><b>Google 인증 플랫폼(OAuth 동의 화면)</b>을 시작해요. 앱 이름과 내 이메일을 넣고 대상은 <b>외부</b>로 해요. <b>대상 › 테스트 사용자</b>에 내 Gmail을 추가해요.</li>
+    <li><b>클라이언트 › 클라이언트 만들기</b>에서 유형을 <b>웹 애플리케이션</b>으로 골라요.<br>승인된 자바스크립트 원본: <code class="copy">${esc(origin)}</code><br>승인된 리디렉션 URI: <code class="copy">${esc(uri)}</code><br>만든 뒤 나오는 <b>클라이언트 ID</b>를 아래에 넣어요.</li>
+    <li><b>사용자 인증 정보 › API 키 만들기</b>를 눌러요. 키 제한에서 <b>웹사이트</b>를 고르고 <code class="copy">${esc(origin)}/*</code>와 <code class="copy">https://docs.google.com/*</code>를 추가해요. API 제한은 <b>Google Picker API</b>로 해요.</li>
+    <li>콘솔 첫 화면(대시보드)의 <b>프로젝트 번호</b>(숫자)를 아래에 넣어요.</li>
+   </ol>
+   <div class="keybody">
+    <label class="klabel" for="gClient">클라이언트 ID</label><input id="gClient" autocomplete="off" spellcheck="false" placeholder="….apps.googleusercontent.com" value="${esc(gcfg.clientId)}">
+    <label class="klabel" for="gKey">API 키</label><input id="gKey" autocomplete="off" spellcheck="false" placeholder="AIza로 시작" value="${esc(gcfg.apiKey)}">
+    <label class="klabel" for="gApp">프로젝트 번호</label><input id="gApp" inputmode="numeric" autocomplete="off" placeholder="숫자 12자리 정도" value="${esc(gcfg.appId)}">
+    <div class="row"><button class="btn primary" type="button" id="gSave">저장</button><button class="btn" type="button" id="gClear">지우기</button><span class="note" id="gMsg" role="status"></span></div>
+    <p class="note">이 값들은 비밀번호가 아니고 내 사이트 주소에서만 쓰이도록 제한돼요. 이 기기에 저장되며, 다른 기기에서는 다시 넣어야 해요.</p>
+   </div></details>`;
+}
 function setupLocalDrive(){
   const st=$("#driveState");st.textContent="";
+  if(canPicker){
+    $("#drivePanel").innerHTML=`<p class="guide">구글 계정으로 로그인하면 학습실 안에서 드라이브가 열려요. PDF를 고르면 바로 가져와요.</p>
+      <div class="row"><button class="btn primary" type="button" id="drivePick"${gReady()?"":" disabled"}>드라이브에서 PDF 고르기</button><button class="btn" type="button" id="driveDevice">기기 파일 창에서 고르기</button></div>
+      ${gSetupHTML()}
+      <p class="note">학습실은 내가 고른 파일만 읽을 수 있어요(drive.file 권한). 로그인은 이 창을 닫으면 끝나요.</p>`;
+    $("#drivePick").onclick=openPicker;
+    $("#driveDevice").onclick=()=>pdfIn.click();
+    $("#gSave").onclick=()=>{const c=$("#gClient").value.trim(),k=$("#gKey").value.trim(),a=$("#gApp").value.replace(/\D/g,"");
+      if(!/\.apps\.googleusercontent\.com$/.test(c)){$("#gMsg").textContent="클라이언트 ID는 ‘.apps.googleusercontent.com’으로 끝나요.";return}
+      if(!/^AIza/.test(k)){$("#gMsg").textContent="API 키는 ‘AIza’로 시작해요.";return}
+      if(!a){$("#gMsg").textContent="프로젝트 번호(숫자)를 넣어 주세요.";return}
+      gcfg={clientId:c,apiKey:k,appId:a};store(GCFG_KEY,gcfg);try{sessionStorage.removeItem(GTOK_KEY)}catch(e){}
+      setupLocalDrive();$("#driveState").textContent="저장했어요. ‘드라이브에서 PDF 고르기’를 눌러 보세요."};
+    $("#gClear").onclick=()=>{gcfg=Object.assign({},GDRIVE_DEFAULT);try{localStorage.removeItem(GCFG_KEY);sessionStorage.removeItem(GTOK_KEY)}catch(e){}setupLocalDrive()};
+    document.querySelectorAll("#drivePanel code.copy").forEach(c=>{c.title="눌러서 복사";c.onclick=()=>{navigator.clipboard?.writeText(c.textContent).then(()=>{$("#driveState").textContent="복사했어요: "+c.textContent}).catch(()=>{const r=document.createRange();r.selectNodeContents(c);const sel=getSelection();sel.removeAllRanges();sel.addRange(r)})}});
+    return;
+  }
   $("#drivePanel").innerHTML=`<p class="guide">이 파일은 claude.ai 밖에서 열려 있어서 드라이브를 직접 검색할 수 없어요. 대신 기기의 파일 선택 창에서 Google Drive를 골라 가져와요.</p>
     <ol class="steps-plain">${drivePickerGuide().map(t=>`<li>${t}</li>`).join("")}</ol>
     <div class="row"><button class="btn primary" type="button" id="drivePick">드라이브에서 PDF 고르기</button></div>
-    <p class="note">드라이브 목록을 바로 검색하려면 claude.ai(또는 Claude 앱)의 아티팩트 화면에서 학습실을 열어 주세요.</p>`;
+    <p class="note">학습실 안에서 드라이브를 바로 열려면 GitHub 주소(lijong454.github.io/read-along-lab/)나 claude.ai 아티팩트 화면에서 여세요.</p>`;
   $("#drivePick").onclick=()=>pdfIn.click();
 }
+/* Coming back from Google sign-in (home-screen app on iPhone): open the picker straight away. */
+if(canPicker){const r=readRedirectToken();if(r){openUpload&&setTimeout(()=>{openUpload();const p=$("#drivePanel");p.hidden=false;$("#driveOpen").setAttribute("aria-expanded","true");
+  if(r.ok)openPicker();else toastErr(gErr({code:r.err}))},50)}}
 function driveErr(e){
   const c=e&&e.code;
   if(c==="server_not_connected"||c==="server_not_found")return "Google Drive가 연결돼 있지 않아요. claude.ai 설정 › 커넥터에서 Google Drive를 추가해 주세요.";
