@@ -1,0 +1,16 @@
+{
+  "name": "Article Read-Along Lab",
+  "short_name": "영어 학습실",
+  "description": "영어 기사 PDF를 수준별로 읽고 듣고 문제로 복습하는 학습실",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF3F9",
+  "theme_color": "#18264A",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
