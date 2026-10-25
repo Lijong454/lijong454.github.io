@@ -1,6 +1,6 @@
 // Scoped to /stairs/ so the site's root service worker never handles this game's pages.
 // Network first, so a new version shows up right away; cached copy only as a fallback.
-const VERSION = "endless-stairs-v1";
+const VERSION = "endless-stairs-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 

@@ -172,6 +172,32 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 #app[data-style="pixel"] .board .sc{font-size:11px}
 .board li.msg{display:block;text-align:center;color:var(--muted);box-shadow:none;padding:24px 8px;line-height:1.5}
 #myRank{font-size:13px;color:var(--muted);margin:0}
+
+/* items */
+#fx{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:26px}
+.fxc{display:flex;align-items:center;gap:4px;background:var(--panel);border:var(--border);border-radius:999px;padding:2px 10px 2px 4px;font-family:var(--f-num);font-size:12px;box-shadow:var(--shadow);font-variant-numeric:tabular-nums}
+#app[data-style="pixel"] .fxc{font-size:9px}
+.fxc img{width:20px;height:20px}
+.equip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.eq{border:0;background:transparent;box-shadow:inset 0 0 0 2px var(--line);border-radius:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;min-width:0}
+.eq img{width:30px;height:30px}
+.eq span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.eq[aria-pressed="true"]{box-shadow:inset 0 0 0 3px var(--accent)}
+.eq.empty img{opacity:.4}
+.eq .ct{font-family:var(--f-num);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+#app[data-style="pixel"] .eq .ct{font-size:8px}
+.item-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.itm{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;border:0;background:transparent;box-shadow:inset 0 0 0 2px var(--line);border-radius:14px;padding:10px 12px;text-align:left}
+.itm img{width:44px;height:44px}
+.itm b{display:block;font-size:15px}
+.itm small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.35}
+.itm .buy{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12px;color:var(--muted);white-space:nowrap}
+.itm .buy .p{display:flex;align-items:center;gap:4px;background:var(--accent);color:var(--accent-ink);padding:5px 10px;border-radius:999px;font-weight:600}
+.itm .buy .coin-ico{width:12px;height:12px}
+.itm.nope{animation:nope .3s}
+#app[data-style="pixel"] .eq,#app[data-style="pixel"] .itm,#app[data-style="pixel"] .fxc,#app[data-style="pixel"] .itm .buy .p{border-radius:0}
+#app[data-style="pixel"] .eq img,#app[data-style="pixel"] .itm img,#app[data-style="pixel"] .fxc img{image-rendering:pixelated}
+#shopTabs{grid-template-columns:1fr 1fr}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -182,7 +208,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
   <div id="hud" hidden>
     <div class="pill" aria-label="코인"><span class="coin-ico"></span><span id="hudCoins">0</span></div>
-    <div id="scoreWrap"><div id="score">0</div><div id="timer"><div id="timerFill"></div></div></div>
+    <div id="scoreWrap"><div id="score">0</div><div id="timer"><div id="timerFill"></div></div><div id="fx" aria-live="polite"></div></div>
     <button id="pauseBtn" aria-label="일시정지"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg></button>
   </div>
 
@@ -212,8 +238,12 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       </div>
       <div class="row">
         <button class="btn primary" id="startBtn">시작하기</button>
-        <button class="btn" id="shopBtn">캐릭터</button>
+        <button class="btn" id="shopBtn">상점</button>
         <button class="btn" id="boardBtn">순위</button>
+      </div>
+      <div>
+        <div class="label">가져갈 아이템 · 눌러서 고르면 시작할 때 1개씩 써요</div>
+        <div class="equip" id="equip"></div>
       </div>
       <div class="sync" data-s="loading"><i></i><span>저장 정보를 불러오는 중…</span></div>
       <div>
@@ -233,10 +263,12 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
   <div class="overlay" id="shop" hidden>
     <div class="card">
       <div class="shop-head">
-        <h2 class="title" style="font-size:30px">캐릭터</h2>
+        <h2 class="title" style="font-size:30px">상점</h2>
         <div class="pill" style="box-shadow:none"><span class="coin-ico"></span><span id="sCoins">0</span></div>
       </div>
+      <div class="seg" id="shopTabs"><button data-tab="chars" aria-pressed="true">캐릭터</button><button data-tab="items" aria-pressed="false">아이템</button></div>
       <div class="shop-grid" id="shopGrid"></div>
+      <div class="item-grid" id="itemGrid" hidden></div>
       <p id="shopMsg">계단 위 코인을 모아 새 캐릭터를 열어요.</p>
       <button class="btn primary" id="shopBack">돌아가기</button>
     </div>
@@ -309,7 +341,9 @@ const save = {
   owned: store.get('owned', ['sprout']),
   char: store.get('char', 'sprout'),
   style: store.get('style', 'flat'),
-  sound: store.get('sound', true)
+  sound: store.get('sound', true),
+  items: store.get('items', { wing: 0, shield: 0, magnet: 0, rocket: 0 }),
+  equip: store.get('equip', {})
 };
 function persist() { for (const k in save) store.set(k, save[k]); }
 
@@ -435,6 +469,7 @@ function ensure(n) {
     runLen++; lastDir = d;
     const s = { x: last.x + d, coin: 0 };
     if (i > 4 && !last.coin) { const r = Math.random(); if (r < 0.015) s.coin = 2; else if (r < 0.13) s.coin = 1; }
+    if (i > 15 && !s.coin && !last.item) { const r = Math.random(); if (r < 0.007) s.item = 'wing'; else if (r < 0.016) s.item = 'shield'; else if (r < 0.028) s.item = 'magnet'; }
     stairs.push(s);
   }
 }
@@ -674,6 +709,7 @@ function render() {
     drawBlock(c, X, Y, z, i);
     if (i > 0 && i % 100 === 0) drawFlag(c, X, Y, i, z);
     if (s.coin) drawCoin(c, X, Y, s.coin);
+    if (s.item) drawItem(c, s.item, X, Y - H * 0.8 + Math.sin(clock * 4 + i) * 3, 12, save.style);
   }
   // player
   const s = pix ? PXF : U / 18;
@@ -686,7 +722,11 @@ function render() {
     c.fillStyle = 'rgba(0,0,0,.18)';
     if (save.style !== 'neon') c.fillRect(X - 5 * s, sy(Math.round(pv.ty)) - 1, 10 * s, 2);
   }
+  const autoOn = state === 'play' && (fx.auto > 0 || fx.wing > 0);
+  if (autoOn && fx.auto <= 0) drawWings(c, X, Y - idle, s);
+  if (autoOn && fx.auto > 0) drawFlame(c, X, Y, s);
   drawChar(c, X, Y - idle, s, save.char, facing, phase, save.style);
+  if (fx.shield > 0 && !pv.falling) drawBubble(c, X, Y, s);
   c.restore();
   drawParticles(c);
   c.restore();
@@ -727,7 +767,10 @@ const sfx = {
   mile: () => { [523, 659, 784, 1047].forEach((f, k) => tone(f, 0.12, 0.12, 0, k * 0.07)); },
   ui: () => tone(660, 0.05, 0.08),
   buy: () => { [523, 784, 1047, 1319].forEach((f, k) => tone(f, 0.16, 0.12, 0, k * 0.06)); },
-  no: () => tone(180, 0.18, 0.12, 140)
+  no: () => tone(180, 0.18, 0.12, 140),
+  item: () => { [660, 880, 1175].forEach((f, k) => tone(f, 0.1, 0.12, 0, k * 0.05)); },
+  shield: () => { tone(900, 0.25, 0.14, 300); tone(1400, 0.12, 0.08, 0, 0.02, 'sine'); },
+  rocket: () => tone(120, 0.6, 0.1, 900, 0, 'sawtooth')
 };
 
 /* ---------- gameplay ---------- */
@@ -762,7 +805,7 @@ async function flush() {
   let retried = false;
   while (cloud.dirty) {
     cloud.dirty = false;
-    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, at: Date.now() };
+    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, items: Object.assign({}, save.items), at: Date.now() };
     try {
       await cloud.db.doc('data/users/' + cloud.uid + '/save').set(body);
     } catch (e) {
@@ -865,6 +908,7 @@ async function initCloud() {
       const coins = Number.isFinite(Number(d.coins)) ? Number(d.coins) : save.coins;
       needWrite = best !== (Number(d.best) || 0) || owned.length !== (Array.isArray(d.owned) ? d.owned.length : 0);
       save.best = best; save.coins = coins; save.owned = owned;
+      if (d.items && typeof d.items === 'object') for (const k of ITEM_IDS) save.items[k] = Math.max(0, Number(d.items[k]) || 0);
       if (d.char && owned.includes(d.char)) save.char = d.char;
       if (!owned.includes(save.char)) save.char = 'sprout';
     }
@@ -882,46 +926,104 @@ async function initCloud() {
 function drainRate() { return 0.15 + 0.4 * Math.min(score, 1000) / 1000; }
 const GAIN = 0.055;
 
+const ITEMS = {
+  wing:   { name: '날개',       desc: '3.5초 동안 저절로 올라가요',     price: 30, start: '시작할 때 쓰면 바로 날아요' },
+  shield: { name: '방패',       desc: '실수하거나 시간이 다 돼도 한 번 버텨요', price: 40, start: '시작할 때 1개 들고 가요' },
+  magnet: { name: '자석',       desc: '잠깐 동안 코인을 두 배로 얻어요', price: 25, start: '시작할 때 쓰면 15초 동안' },
+  rocket: { name: '로켓 스타트', desc: '시작하자마자 50칸을 날아올라요', price: 60, start: '상점에서만 살 수 있어요' }
+};
+const ITEM_IDS = ['wing', 'shield', 'magnet', 'rocket'];
+function josa(w, a, b) { const ch = w.charCodeAt(w.length - 1); const has = ch >= 0xAC00 && ch <= 0xD7A3 ? (ch - 0xAC00) % 28 !== 0 : false; return w + (has ? a : b); }
+function ro(w) { const ch = w.charCodeAt(w.length - 1); const jong = ch >= 0xAC00 && ch <= 0xD7A3 ? (ch - 0xAC00) % 28 : 0; return w + (jong === 0 || jong === 8 ? '로' : '으로'); }
+const fx = { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 };
+const autoActive = () => fx.auto > 0 || fx.wing > 0;
+
 function startRun() {
   ac();
   resetWorld();
-  state = 'ready';
+  Object.assign(fx, { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
+  const used = [];
+  for (const id of ITEM_IDS) {
+    if (save.equip[id] && (save.items[id] || 0) > 0) { save.items[id]--; used.push(id); }
+    if (!((save.items[id] || 0) > 0)) save.equip[id] = false;
+  }
+  if (used.includes('rocket')) fx.auto = 50;
+  if (used.includes('wing')) fx.wing = 3.5;
+  if (used.includes('shield')) fx.shield = 1;
+  if (used.includes('magnet')) fx.magnet = 15;
+  if (used.length) { persist(); cloudSave(); }
   show(null);
-  hud.hidden = false; controls.hidden = false; hint.hidden = false; hint.style.opacity = 1;
-  updHud();
+  hud.hidden = false; controls.hidden = false;
+  if (autoActive()) { state = 'play'; hint.hidden = true; if (fx.auto) sfx.rocket(); }
+  else { state = 'ready'; hint.hidden = false; hint.style.opacity = 1; }
+  updHud(); fxKey = ''; renderFx();
 }
 function hop(tx, ty, dur) {
   pv.fx = pv.x; pv.fy = pv.y; pv.tx = tx; pv.ty = ty; pv.t = 0; pv.dur = dur || 0.085;
 }
+function floatText(x, y, text, col) {
+  particles.push({ x, y, vx: 0, vy: 1.6, life: 0.8, max: 0.8, col, g: 0, text });
+}
+function advance(turn, auto) {
+  const cur = stairs[p];
+  p++; score = p;
+  const s = stairs[p], nx = s.x;
+  hop(nx, p, auto ? (fx.auto > 0 ? 0.045 : 0.07) : 0.085);
+  time = Math.min(1, time + GAIN);
+  if (!auto || p % 2 === 0) sfx.step(turn);
+  spawn(auto ? 2 : 4, cur.x, p - 1, { col: save.style === 'neon' ? zoneAt(camY).st : 'rgba(255,255,255,.9)', speed: 1.4, spread: 2.2, life: 0.35, size: 2.5, g: 2 });
+  if (s.coin) {
+    const mult = fx.magnet > 0 ? 2 : 1;
+    const v = (s.coin === 2 ? 5 : 1) * mult;
+    runCoins += v; save.coins += v;
+    spawn(10, nx, p + 0.9, { col: s.coin === 2 ? '#4dfcff' : '#ffd23f', speed: 3, spread: Math.PI * 2, life: 0.5, size: 3, g: 3 });
+    floatText(nx, p + 1.3, '+' + v, s.coin === 2 ? '#bff8ff' : '#fff2a8');
+    s.coin === 2 ? sfx.gem() : sfx.coin();
+    s.coin = 0;
+    store.set('coins', save.coins);
+  }
+  if (s.item) { pickItem(s.item, nx, p); s.item = null; }
+  if (p % 100 === 0) {
+    sfx.mile();
+    spawn(26, nx, p + 0.8, { col: '#ffffff', speed: 4, spread: Math.PI * 2, life: 0.9, size: 3, g: 2 });
+  }
+  updHud();
+}
+function pickItem(id, x, y) {
+  if (id === 'wing') fx.wing = Math.min(7, fx.wing + 3.5);
+  else if (id === 'shield') fx.shield = Math.min(3, fx.shield + 1);
+  else if (id === 'magnet') fx.magnet = Math.min(20, fx.magnet + 8);
+  sfx.item();
+  spawn(16, x, y + 0.9, { col: '#ffffff', speed: 3.5, spread: Math.PI * 2, life: 0.6, size: 3, g: 2 });
+  floatText(x, y + 1.6, ITEMS[id].name + '!', '#ffffff');
+  renderFx();
+}
+function autoStep() {
+  ensure(p + 50);
+  const d = stairs[p + 1].x - stairs[p].x;
+  const turn = d !== facing;
+  facing = d;
+  advance(turn, true);
+}
+function shieldSave(reason) {
+  fx.shield--;
+  shake = 0.3;
+  sfx.shield();
+  if (reason === 'time') time = 0.45;
+  spawn(18, pv.x, p + 0.6, { col: '#7fd0ff', speed: 3, spread: Math.PI * 2, life: 0.5, size: 3, g: 1 });
+  floatText(pv.x, p + 1.7, '방패!', '#bfe6ff');
+  renderFx();
+}
 function act(turn) {
   if (state !== 'ready' && state !== 'play') return;
+  if (autoActive()) return;
   if (state === 'ready') { state = 'play'; hint.style.opacity = 0; setTimeout(() => { hint.hidden = true; }, 300); }
   if (turn) facing = -facing;
   ensure(p + 50);
-  const cur = stairs[p], nx = cur.x + facing;
-  if (stairs[p + 1].x === nx) {
-    p++; score = p;
-    hop(nx, p);
-    time = Math.min(1, time + GAIN);
-    sfx.step(turn);
-    spawn(4, cur.x, p - 1, { col: save.style === 'neon' ? zoneAt(camY).st : 'rgba(255,255,255,.9)', speed: 1.4, spread: 2.2, life: 0.35, size: 2.5, g: 2 });
-    const s = stairs[p];
-    if (s.coin) {
-      const v = s.coin === 2 ? 5 : 1;
-      runCoins += v; save.coins += v; s.coin = 0;
-      spawn(10, nx, p + 0.9, { col: v === 5 ? '#4dfcff' : '#ffd23f', speed: 3, spread: Math.PI * 2, life: 0.5, size: 3, g: 3 });
-      particles.push({ x: nx, y: p + 1.3, vx: 0, vy: 1.6, life: 0.7, max: 0.7, col: v === 5 ? '#bff8ff' : '#fff2a8', g: 0, text: '+' + v });
-      v === 5 ? sfx.gem() : sfx.coin();
-      store.set('coins', save.coins);
-    }
-    if (p % 100 === 0) {
-      sfx.mile();
-      spawn(26, nx, p + 0.8, { col: '#ffffff', speed: 4, spread: Math.PI * 2, life: 0.9, size: 3, g: 2 });
-    }
-    updHud();
-  } else {
-    fail('miss', nx);
-  }
+  const nx = stairs[p].x + facing;
+  if (stairs[p + 1].x === nx) advance(turn, false);
+  else if (fx.shield > 0) shieldSave('miss');
+  else fail('miss', nx);
 }
 function fail(reason, nx) {
   state = 'falling'; failReason = reason; failT = 0;
@@ -932,6 +1034,201 @@ function fail(reason, nx) {
   sfx.fail();
   spawn(14, reason === 'miss' ? nx : pv.x, (reason === 'miss' ? p + 1 : p) + 0.5, { col: '#ff6b6b', speed: 3.5, spread: Math.PI * 2, life: 0.6, size: 3, g: 4 });
 }
+
+/* ---------- item art ---------- */
+const PIX = {
+  wing:   ['......WW', '....WWWW', '..WWWWWG', '.WWWWWG.', 'WWWWWG..', 'WWWG....', '.GG.....', '........'],
+  shield: ['BBBBBBBB', 'BLLBBBBB', 'BLBBBBBB', 'BBBBBBBB', '.BBBBBB.', '.BBBBBB.', '..BBBB..', '...BB...'],
+  magnet: ['SS....SS', 'RR....RR', 'RR....RR', 'RR....RR', 'RRR..RRR', '.RRRRRR.', '..RRRR..', '........'],
+  rocket: ['...RR...', '..WWWW..', '..WBBW..', '..WWWW..', '.RWWWWR.', 'RR.WW.RR', '...OO...', '...YY...']
+};
+const PIXC = { W: '#ffffff', G: '#9fb6d1', B: '#3d8bff', L: '#bfe0ff', R: '#ff4d5e', S: '#c9d2de', O: '#ff9a2a', Y: '#ffd23f' };
+const NEONC = { wing: '#e9fbff', shield: '#4db8ff', magnet: '#ff3d6e', rocket: '#ffb13d' };
+function drawItem(c, id, x, y, r, style) {
+  if (style === 'pixel') {
+    const cell = Math.max(2, Math.round(r / 4)), x0 = Math.round((x - cell * 4) / cell) * cell, y0 = Math.round((y - cell * 4) / cell) * cell;
+    PIX[id].forEach((row, j) => { for (let k = 0; k < 8; k++) { const ch = row[k]; if (ch === '.') continue; c.fillStyle = PIXC[ch]; c.fillRect(x0 + k * cell, y0 + j * cell, cell, cell); } });
+    return;
+  }
+  const neon = style === 'neon';
+  c.save();
+  if (neon) { c.shadowColor = NEONC[id]; c.shadowBlur = r * 0.9; c.strokeStyle = NEONC[id]; c.lineWidth = Math.max(1.5, r * 0.14); c.fillStyle = 'rgba(255,255,255,0.08)'; }
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  if (id === 'wing') {
+    c.beginPath();
+    c.moveTo(x - r * 0.9, y + r * 0.35);
+    c.quadraticCurveTo(x - r * 0.4, y - r * 1.0, x + r * 0.95, y - r * 0.85);
+    c.quadraticCurveTo(x + r * 0.55, y - r * 0.3, x + r * 0.8, y - r * 0.15);
+    c.quadraticCurveTo(x + r * 0.35, y + r * 0.15, x + r * 0.55, y + r * 0.4);
+    c.quadraticCurveTo(x, y + r * 0.95, x - r * 0.9, y + r * 0.35);
+    c.closePath();
+    if (neon) { c.fill(); c.stroke(); }
+    else { c.fillStyle = '#ffffff'; c.fill(); c.strokeStyle = '#6f86a8'; c.lineWidth = Math.max(1.5, r * 0.16); c.stroke();
+      c.beginPath(); c.moveTo(x - r * 0.35, y + r * 0.2); c.quadraticCurveTo(x + r * 0.1, y - r * 0.35, x + r * 0.6, y - r * 0.55); c.lineWidth = Math.max(1, r * 0.1); c.stroke(); }
+  } else if (id === 'shield') {
+    const path = () => { c.beginPath(); c.moveTo(x, y - r); c.lineTo(x + r * 0.85, y - r * 0.6); c.lineTo(x + r * 0.75, y + r * 0.15); c.quadraticCurveTo(x + r * 0.5, y + r * 0.75, x, y + r); c.quadraticCurveTo(x - r * 0.5, y + r * 0.75, x - r * 0.75, y + r * 0.15); c.lineTo(x - r * 0.85, y - r * 0.6); c.closePath(); };
+    path();
+    if (neon) { c.fill(); c.stroke(); }
+    else {
+      c.fillStyle = '#3d8bff'; c.fill(); c.strokeStyle = '#1f5fcc'; c.lineWidth = Math.max(1, r * 0.12); c.stroke();
+      c.fillStyle = '#bfe0ff'; c.beginPath(); c.moveTo(x - r * 0.1, y - r * 0.7); c.lineTo(x - r * 0.6, y - r * 0.42); c.lineTo(x - r * 0.52, y + r * 0.05); c.closePath(); c.fill();
+    }
+  } else if (id === 'magnet') {
+    const lw = r * 0.5;
+    c.lineWidth = neon ? Math.max(1.5, r * 0.16) : lw;
+    c.lineCap = 'butt';
+    c.strokeStyle = neon ? NEONC.magnet : '#ff4d5e';
+    c.beginPath(); c.moveTo(x - r * 0.6, y - r * 0.55); c.lineTo(x - r * 0.6, y); c.arc(x, y, r * 0.6, Math.PI, 0, true); c.lineTo(x + r * 0.6, y - r * 0.55); c.stroke();
+    if (!neon) { c.fillStyle = '#c9d2de'; c.fillRect(x - r * 0.6 - lw / 2, y - r * 0.95, lw, r * 0.4); c.fillRect(x + r * 0.6 - lw / 2, y - r * 0.95, lw, r * 0.4); }
+  } else if (id === 'rocket') {
+    if (!neon) { c.fillStyle = '#ff9a2a'; c.beginPath(); c.moveTo(x - r * 0.25, y + r * 0.55); c.lineTo(x, y + r * 1.05); c.lineTo(x + r * 0.25, y + r * 0.55); c.fill(); }
+    c.beginPath(); c.ellipse(x, y, r * 0.38, r * 0.8, 0, 0, Math.PI * 2);
+    if (neon) { c.fill(); c.stroke(); c.beginPath(); c.moveTo(x - r * 0.35, y + r * 0.2); c.lineTo(x - r * 0.75, y + r * 0.7); c.lineTo(x - r * 0.3, y + r * 0.55); c.moveTo(x + r * 0.35, y + r * 0.2); c.lineTo(x + r * 0.75, y + r * 0.7); c.lineTo(x + r * 0.3, y + r * 0.55); c.moveTo(x - r * 0.15, y + r * 0.95); c.lineTo(x, y + r * 1.2); c.lineTo(x + r * 0.15, y + r * 0.95); c.stroke(); c.beginPath(); c.arc(x, y - r * 0.05, r * 0.17, 0, Math.PI * 2); c.stroke(); }
+    else {
+      c.fillStyle = '#eef2f8'; c.fill(); c.strokeStyle = '#9aa3b5'; c.lineWidth = Math.max(1, r * 0.1); c.stroke();
+      c.fillStyle = '#ff4d5e';
+      c.beginPath(); c.moveTo(x - r * 0.35, y + r * 0.2); c.lineTo(x - r * 0.75, y + r * 0.7); c.lineTo(x - r * 0.3, y + r * 0.55); c.fill();
+      c.beginPath(); c.moveTo(x + r * 0.35, y + r * 0.2); c.lineTo(x + r * 0.75, y + r * 0.7); c.lineTo(x + r * 0.3, y + r * 0.55); c.fill();
+      c.beginPath(); c.ellipse(x, y - r * 0.55, r * 0.3, r * 0.28, 0, Math.PI, 0); c.fill();
+      c.fillStyle = '#3d8bff'; c.beginPath(); c.arc(x, y - r * 0.05, r * 0.18, 0, Math.PI * 2); c.fill();
+    }
+  }
+  c.restore();
+}
+let iconCache = {};
+function itemIcon(id) {
+  const key = id + save.style;
+  if (!iconCache[key]) {
+    const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64;
+    const c2 = cv2.getContext('2d'); c2.imageSmoothingEnabled = false;
+    drawItem(c2, id, 32, 32, 26, save.style);
+    iconCache[key] = cv2.toDataURL('image/png');
+  }
+  return iconCache[key];
+}
+function drawWings(c, X, Y, s) {
+  const flap = Math.sin(clock * 28) * 2;
+  const pix = save.style === 'pixel', neon = save.style === 'neon';
+  const bx = X - facing * 4 * s, by = Y - 9 * s;
+  c.save();
+  if (neon) { c.shadowColor = '#e9fbff'; c.shadowBlur = 12; }
+  c.fillStyle = '#ffffff';
+  if (pix) {
+    const q = v => Math.round(v / s) * s;
+    for (const k of [0, 1]) {
+      const w = 6 - k * 2;
+      c.fillRect(q(bx - (facing > 0 ? w : 0) * s), q(by - (3 + k * 2 + flap) * s), w * s, 2 * s);
+    }
+  } else {
+    c.globalAlpha = 0.95;
+    c.beginPath(); c.ellipse(bx - facing * 3 * s, by - (2 + flap) * s, 4.5 * s, 2.2 * s, -facing * 0.5, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = 0.75;
+    c.beginPath(); c.ellipse(bx - facing * 2.5 * s, by - (4.5 + flap * 1.3) * s, 3.8 * s, 1.8 * s, -facing * 0.8, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+}
+function drawFlame(c, X, Y, s) {
+  const pix = save.style === 'pixel';
+  const len = (3 + Math.random() * 3) * s;
+  c.save();
+  if (save.style === 'neon') { c.shadowColor = '#ffb13d'; c.shadowBlur = 14; }
+  c.fillStyle = '#ff9a2a';
+  if (pix) { const q = v => Math.round(v / s) * s; c.fillRect(q(X - 2 * s), q(Y), 4 * s, q(len)); c.fillStyle = '#ffd23f'; c.fillRect(q(X - s), q(Y), 2 * s, q(len * 0.6)); }
+  else {
+    c.beginPath(); c.moveTo(X - 3 * s, Y); c.lineTo(X, Y + len); c.lineTo(X + 3 * s, Y); c.fill();
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.moveTo(X - 1.5 * s, Y); c.lineTo(X, Y + len * 0.6); c.lineTo(X + 1.5 * s, Y); c.fill();
+  }
+  c.restore();
+}
+function drawBubble(c, X, Y, s) {
+  const cy = Y - 9 * s, r = 12 * s + Math.sin(clock * 5) * s * 0.5;
+  c.save();
+  c.strokeStyle = 'rgba(127,208,255,0.9)'; c.fillStyle = 'rgba(127,208,255,0.14)';
+  c.lineWidth = save.style === 'pixel' ? s : 2;
+  if (save.style === 'neon') { c.shadowColor = '#4db8ff'; c.shadowBlur = 12; }
+  if (save.style === 'pixel') { const q = v => Math.round(v / s) * s; c.fillRect(q(X - r), q(cy - r), q(2 * r), q(2 * r)); c.strokeRect(q(X - r), q(cy - r), q(2 * r), q(2 * r)); }
+  else { c.beginPath(); c.arc(X, cy, r, 0, Math.PI * 2); c.fill(); c.stroke(); }
+  c.restore();
+}
+
+/* ---------- item HUD, equip row, shop tab ---------- */
+let fxKey = '';
+function renderFx() {
+  const parts = [];
+  if (fx.auto > 0) parts.push(['rocket', fx.auto + '칸']);
+  if (fx.wing > 0) parts.push(['wing', Math.ceil(fx.wing) + '초']);
+  if (fx.magnet > 0) parts.push(['magnet', Math.ceil(fx.magnet) + '초']);
+  if (fx.shield > 0) parts.push(['shield', '×' + fx.shield]);
+  const key = save.style + parts.map(x => x.join(':')).join('|');
+  if (key === fxKey) return;
+  fxKey = key;
+  const box = $('fx'); box.replaceChildren();
+  for (const [id, t] of parts) {
+    const el = document.createElement('span'); el.className = 'fxc';
+    const img = document.createElement('img'); img.src = itemIcon(id); img.alt = ITEMS[id].name;
+    const tx = document.createElement('span'); tx.textContent = t;
+    el.append(img, tx); box.append(el);
+  }
+}
+function renderEquip() {
+  const box = $('equip'); if (!box) return;
+  box.replaceChildren();
+  for (const id of ITEM_IDS) {
+    const n = save.items[id] || 0;
+    if (n <= 0) save.equip[id] = false;
+    const b = document.createElement('button');
+    b.className = 'eq' + (n > 0 ? '' : ' empty');
+    b.setAttribute('aria-pressed', String(!!save.equip[id]));
+    b.setAttribute('aria-label', ITEMS[id].name + ' ' + n + '개' + (save.equip[id] ? ', 가져가기 선택됨' : ''));
+    const img = document.createElement('img'); img.src = itemIcon(id); img.alt = '';
+    const nm = document.createElement('span'); nm.textContent = ITEMS[id].name;
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = '×' + n;
+    b.append(img, nm, ct);
+    b.addEventListener('click', () => {
+      if ((save.items[id] || 0) <= 0) { sfx.no(); openShop('items', josa(ITEMS[id].name, '이', '가') + ' 없어요. 여기서 살 수 있어요.'); return; }
+      save.equip[id] = !save.equip[id]; store.set('equip', save.equip); sfx.ui(); renderEquip();
+    });
+    box.append(b);
+  }
+}
+let shopTab = 'chars';
+function openShop(tab, msg) {
+  ac(); pending = null; shopTab = tab || 'chars';
+  buildShop();
+  $('shopMsg').textContent = msg || (shopTab === 'items' ? '아이템은 계단 위에서도 가끔 주울 수 있어요.' : '계단 위 코인을 모아 새 캐릭터를 열어요.');
+  show('shop');
+}
+function buildItems() {
+  const grid = $('itemGrid'); grid.replaceChildren();
+  for (const id of ITEM_IDS) {
+    const it = ITEMS[id], n = save.items[id] || 0;
+    const b = document.createElement('button'); b.className = 'itm';
+    b.setAttribute('aria-label', it.name + ' 사기, ' + it.price + '코인, 보유 ' + n + '개');
+    const img = document.createElement('img'); img.src = itemIcon(id); img.alt = '';
+    const txt = document.createElement('div');
+    const bn = document.createElement('b'); bn.textContent = it.name;
+    const sm = document.createElement('small'); sm.textContent = id === 'rocket' ? it.desc + ' · 상점에서만 팔아요' : it.desc + ' · ' + it.start;
+    txt.append(bn, sm);
+    const buy = document.createElement('div'); buy.className = 'buy';
+    const own = document.createElement('span'); own.textContent = '보유 ' + n;
+    const pr = document.createElement('span'); pr.className = 'p'; pr.innerHTML = '<span class="coin-ico"></span>' + it.price;
+    buy.append(own, pr);
+    b.append(img, txt, buy);
+    b.addEventListener('click', () => {
+      const msg = $('shopMsg');
+      if (save.coins < it.price) { sfx.no(); msg.textContent = '코인이 ' + (it.price - save.coins) + '개 더 필요해요.'; b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
+      save.coins -= it.price; save.items[id] = n + 1; save.equip[id] = true;
+      persist(); sfx.buy(); cloudSave();
+      msg.textContent = josa(it.name, '을', '를') + ' 샀어요. 다음 판에 가져가도록 골라 뒀어요.';
+      buildShop(); refreshMenu();
+    });
+    grid.append(b);
+  }
+}
+document.querySelectorAll('#shopTabs button').forEach(b => b.addEventListener('click', () => {
+  shopTab = b.dataset.tab; pending = null; sfx.ui(); buildShop();
+  $('shopMsg').textContent = shopTab === 'items' ? '아이템은 계단 위에서도 가끔 주울 수 있어요.' : '계단 위 코인을 모아 새 캐릭터를 열어요.';
+}));
 function gameOver() {
   state = 'over'; overAt = performance.now();
   const isNew = score > save.best;
@@ -950,6 +1247,7 @@ function gameOver() {
 function toMenu() {
   if (state === 'paused' && runCoins > 0) cloudSave();
   state = 'menu';
+  Object.assign(fx, { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   resetWorld();
   hud.hidden = true; controls.hidden = true; hint.hidden = true;
   refreshMenu();
@@ -977,8 +1275,23 @@ function frame(now) {
   if (state === 'paused') dt = 0;
   clock += dt;
   if (state === 'play') {
-    time -= drainRate() * dt;
-    if (time <= 0) { time = 0; fail('time'); }
+    if (autoActive()) {
+      fx.acc += dt;
+      let guard = 0;
+      while (state === 'play' && autoActive() && guard++ < 6) {
+        const iv = fx.auto > 0 ? 0.045 : 0.07;
+        if (fx.acc < iv) break;
+        fx.acc -= iv;
+        autoStep();
+        if (fx.auto > 0) fx.auto--;
+      }
+      if (fx.auto <= 0 && fx.wing > 0) fx.wing = Math.max(0, fx.wing - dt);
+      if (!autoActive()) fx.acc = 0;
+    } else {
+      time -= drainRate() * dt;
+      if (time <= 0) { time = 0; if (fx.shield > 0) shieldSave('time'); else fail('time'); }
+    }
+    if (fx.magnet > 0) fx.magnet = Math.max(0, fx.magnet - dt);
   }
   // player visual
   if (pv.t < 1) {
@@ -1001,7 +1314,8 @@ function frame(now) {
   // timer ui
   if (!hud.hidden) {
     elFill.style.transform = 'scaleX(' + Math.max(0, time).toFixed(4) + ')';
-    elTimer.classList.toggle('low', time < 0.25 && state === 'play');
+    elTimer.classList.toggle('low', time < 0.25 && state === 'play' && !autoActive());
+    renderFx();
   }
   render();
   requestAnimationFrame(frame);
@@ -1038,6 +1352,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ---------- menus ---------- */
 function refreshMenu() {
+  renderEquip();
   $('mBest').textContent = save.best;
   $('mCoins').textContent = save.coins;
   $('sCoins').textContent = save.coins;
@@ -1045,7 +1360,7 @@ function refreshMenu() {
   document.querySelectorAll('[data-toggle="sound"]').forEach(b => b.setAttribute('aria-pressed', String(!!save.sound)));
 }
 function setStyle(v) {
-  save.style = v; store.set('style', v);
+  save.style = v; store.set('style', v); iconCache = {}; fxKey = '';
   app.dataset.style = v;
   resize(); refreshMenu(); buildShop();
   sfx.ui();
@@ -1055,7 +1370,7 @@ document.querySelectorAll('[data-toggle="sound"]').forEach(b => b.addEventListen
   save.sound = !save.sound; store.set('sound', save.sound); refreshMenu(); if (save.sound) { ac(); sfx.ui(); }
 }));
 $('startBtn').addEventListener('click', () => { sfx.ui(); startRun(); });
-$('shopBtn').addEventListener('click', () => { ac(); sfx.ui(); pending = null; buildShop(); $('shopMsg').textContent = '계단 위 코인을 모아 새 캐릭터를 열어요.'; show('shop'); });
+$('shopBtn').addEventListener('click', () => { sfx.ui(); openShop('chars'); });
 $('boardBtn').addEventListener('click', () => { ac(); sfx.ui(); renderBoard(); show('board'); });
 $('boardBack').addEventListener('click', () => { sfx.ui(); show('menu'); });
 $('shopBack').addEventListener('click', () => { sfx.ui(); refreshMenu(); show('menu'); });
@@ -1067,6 +1382,9 @@ $('quitBtn').addEventListener('click', () => { sfx.ui(); toMenu(); });
 
 let pending = null;
 function buildShop() {
+  document.querySelectorAll('#shopTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === shopTab)));
+  $('shopGrid').hidden = shopTab !== 'chars'; $('itemGrid').hidden = shopTab !== 'items';
+  buildItems();
   const grid = $('shopGrid'); grid.innerHTML = '';
   $('sCoins').textContent = save.coins;
   for (const ch of CHARS) {
@@ -1092,7 +1410,7 @@ function onChar(ch, el) {
   const msg = $('shopMsg');
   if (save.owned.includes(ch.id)) {
     save.char = ch.id; store.set('char', ch.id); pending = null; sfx.ui();
-    msg.textContent = ch.name + '(으)로 바꿨어요.';
+    msg.textContent = ro(ch.name) + ' 바꿨어요.';
   } else if (save.coins < ch.price) {
     pending = null; sfx.no();
     msg.textContent = '코인이 ' + (ch.price - save.coins) + '개 더 필요해요.';
@@ -1101,11 +1419,11 @@ function onChar(ch, el) {
     return;
   } else if (pending !== ch.id) {
     pending = ch.id; sfx.ui();
-    msg.textContent = ch.name + '을(를) ' + ch.price + '코인에 살까요? 한 번 더 누르면 구매해요.';
+    msg.textContent = josa(ch.name, '을', '를') + ' ' + ch.price + '코인에 살까요? 한 번 더 누르면 구매해요.';
   } else {
     save.coins -= ch.price; save.owned.push(ch.id); save.char = ch.id; pending = null;
     persist(); sfx.buy();
-    msg.textContent = ch.name + '을(를) 열었어요!';
+    msg.textContent = josa(ch.name, '을', '를') + ' 열었어요!';
   }
   buildShop(); refreshMenu();
   cloudSave();
@@ -1114,6 +1432,9 @@ function onChar(ch, el) {
 /* ---------- boot ---------- */
 if (!['pixel', 'flat', 'neon'].includes(save.style)) save.style = 'flat';
 if (!save.owned.includes(save.char)) save.char = 'sprout';
+if (!save.items || typeof save.items !== 'object') save.items = {};
+if (!save.equip || typeof save.equip !== 'object') save.equip = {};
+for (const k of ITEM_IDS) save.items[k] = Math.max(0, Number(save.items[k]) || 0);
 app.dataset.style = save.style;
 resize();
 resetWorld();
