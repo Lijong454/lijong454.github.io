@@ -242,7 +242,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <button class="btn" id="boardBtn">순위</button>
       </div>
       <div>
-        <div class="label">가져갈 아이템 · 눌러서 고르면 시작할 때 1개씩 써요</div>
+        <div class="label">가져갈 아이템 · 고른 아이템을 시작할 때 1개씩 써요 (로켓은 하나만)</div>
         <div class="equip" id="equip"></div>
       </div>
       <div class="sync" data-s="loading"><i></i><span>저장 정보를 불러오는 중…</span></div>
@@ -342,7 +342,7 @@ const save = {
   char: store.get('char', 'sprout'),
   style: store.get('style', 'flat'),
   sound: store.get('sound', true),
-  items: store.get('items', { wing: 0, shield: 0, magnet: 0, rocket: 0 }),
+  items: store.get('items', { wing: 0, shield: 0, magnet: 0, rocket: 0, rocket100: 0, rocket200: 0, rocket400: 0 }),
   equip: store.get('equip', {})
 };
 function persist() { for (const k in save) store.set(k, save[k]); }
@@ -930,24 +930,34 @@ const ITEMS = {
   wing:   { name: '날개',       desc: '3.5초 동안 저절로 올라가요',     price: 30, start: '시작할 때 쓰면 바로 날아요' },
   shield: { name: '방패',       desc: '실수하거나 시간이 다 돼도 한 번 버텨요', price: 40, start: '시작할 때 1개 들고 가요' },
   magnet: { name: '자석',       desc: '잠깐 동안 코인을 두 배로 얻어요', price: 25, start: '시작할 때 쓰면 15초 동안' },
-  rocket: { name: '로켓 스타트', desc: '시작하자마자 50칸을 날아올라요', price: 60, start: '상점에서만 살 수 있어요' }
+  rocket:    { name: '로켓 50',  desc: '시작하자마자 50칸을 날아올라요',  price: 60,  steps: 50 },
+  rocket100: { name: '로켓 100', desc: '시작하자마자 100칸을 날아올라요', price: 100, steps: 100 },
+  rocket200: { name: '로켓 200', desc: '시작하자마자 200칸을 날아올라요', price: 180, steps: 200 },
+  rocket400: { name: '로켓 400', desc: '시작하자마자 400칸을 날아올라요', price: 320, steps: 400 }
 };
-const ITEM_IDS = ['wing', 'shield', 'magnet', 'rocket'];
+const ITEM_IDS = ['wing', 'shield', 'magnet', 'rocket', 'rocket100', 'rocket200', 'rocket400'];
+const isRocket = id => !!(ITEMS[id] && ITEMS[id].steps);
+const artOf = id => isRocket(id) ? 'rocket' : id;
+// faster steps for longer rockets so even 400 stairs takes only a few seconds
+const rocketIv = total => total >= 400 ? 0.016 : total >= 200 ? 0.022 : total >= 100 ? 0.03 : 0.045;
 function josa(w, a, b) { const ch = w.charCodeAt(w.length - 1); const has = ch >= 0xAC00 && ch <= 0xD7A3 ? (ch - 0xAC00) % 28 !== 0 : false; return w + (has ? a : b); }
 function ro(w) { const ch = w.charCodeAt(w.length - 1); const jong = ch >= 0xAC00 && ch <= 0xD7A3 ? (ch - 0xAC00) % 28 : 0; return w + (jong === 0 || jong === 8 ? '로' : '으로'); }
-const fx = { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 };
+const fx = { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 };
 const autoActive = () => fx.auto > 0 || fx.wing > 0;
 
 function startRun() {
   ac();
   resetWorld();
-  Object.assign(fx, { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
+  Object.assign(fx, { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   const used = [];
+  let rocketTaken = false;
   for (const id of ITEM_IDS) {
-    if (save.equip[id] && (save.items[id] || 0) > 0) { save.items[id]--; used.push(id); }
+    if (isRocket(id) && save.equip[id] && rocketTaken) save.equip[id] = false;
+    if (save.equip[id] && (save.items[id] || 0) > 0) { save.items[id]--; used.push(id); if (isRocket(id)) rocketTaken = true; }
     if (!((save.items[id] || 0) > 0)) save.equip[id] = false;
   }
-  if (used.includes('rocket')) fx.auto = 50;
+  const rk = used.filter(isRocket).map(id => ITEMS[id].steps);
+  if (rk.length) { fx.auto = Math.max(...rk); fx.autoTotal = fx.auto; }
   if (used.includes('wing')) fx.wing = 3.5;
   if (used.includes('shield')) fx.shield = 1;
   if (used.includes('magnet')) fx.magnet = 15;
@@ -968,7 +978,7 @@ function advance(turn, auto) {
   const cur = stairs[p];
   p++; score = p;
   const s = stairs[p], nx = s.x;
-  hop(nx, p, auto ? (fx.auto > 0 ? 0.045 : 0.07) : 0.085);
+  hop(nx, p, auto ? (fx.auto > 0 ? rocketIv(fx.autoTotal) : 0.07) : 0.085);
   time = Math.min(1, time + GAIN);
   if (!auto || p % 2 === 0) sfx.step(turn);
   spawn(auto ? 2 : 4, cur.x, p - 1, { col: save.style === 'neon' ? zoneAt(camY).st : 'rgba(255,255,255,.9)', speed: 1.4, spread: 2.2, life: 0.35, size: 2.5, g: 2 });
@@ -1047,12 +1057,13 @@ const NEONC = { wing: '#e9fbff', shield: '#4db8ff', magnet: '#ff3d6e', rocket: '
 function drawItem(c, id, x, y, r, style) {
   if (style === 'pixel') {
     const cell = Math.max(2, Math.round(r / 4)), x0 = Math.round((x - cell * 4) / cell) * cell, y0 = Math.round((y - cell * 4) / cell) * cell;
-    PIX[id].forEach((row, j) => { for (let k = 0; k < 8; k++) { const ch = row[k]; if (ch === '.') continue; c.fillStyle = PIXC[ch]; c.fillRect(x0 + k * cell, y0 + j * cell, cell, cell); } });
+    PIX[artOf(id)].forEach((row, j) => { for (let k = 0; k < 8; k++) { const ch = row[k]; if (ch === '.') continue; c.fillStyle = PIXC[ch]; c.fillRect(x0 + k * cell, y0 + j * cell, cell, cell); } });
     return;
   }
   const neon = style === 'neon';
   c.save();
-  if (neon) { c.shadowColor = NEONC[id]; c.shadowBlur = r * 0.9; c.strokeStyle = NEONC[id]; c.lineWidth = Math.max(1.5, r * 0.14); c.fillStyle = 'rgba(255,255,255,0.08)'; }
+  const art = artOf(id);
+  if (neon) { c.shadowColor = NEONC[art]; c.shadowBlur = r * 0.9; c.strokeStyle = NEONC[art]; c.lineWidth = Math.max(1.5, r * 0.14); c.fillStyle = 'rgba(255,255,255,0.08)'; }
   c.lineJoin = 'round'; c.lineCap = 'round';
   if (id === 'wing') {
     c.beginPath();
@@ -1080,7 +1091,7 @@ function drawItem(c, id, x, y, r, style) {
     c.strokeStyle = neon ? NEONC.magnet : '#ff4d5e';
     c.beginPath(); c.moveTo(x - r * 0.6, y - r * 0.55); c.lineTo(x - r * 0.6, y); c.arc(x, y, r * 0.6, Math.PI, 0, true); c.lineTo(x + r * 0.6, y - r * 0.55); c.stroke();
     if (!neon) { c.fillStyle = '#c9d2de'; c.fillRect(x - r * 0.6 - lw / 2, y - r * 0.95, lw, r * 0.4); c.fillRect(x + r * 0.6 - lw / 2, y - r * 0.95, lw, r * 0.4); }
-  } else if (id === 'rocket') {
+  } else if (art === 'rocket') {
     if (!neon) { c.fillStyle = '#ff9a2a'; c.beginPath(); c.moveTo(x - r * 0.25, y + r * 0.55); c.lineTo(x, y + r * 1.05); c.lineTo(x + r * 0.25, y + r * 0.55); c.fill(); }
     c.beginPath(); c.ellipse(x, y, r * 0.38, r * 0.8, 0, 0, Math.PI * 2);
     if (neon) { c.fill(); c.stroke(); c.beginPath(); c.moveTo(x - r * 0.35, y + r * 0.2); c.lineTo(x - r * 0.75, y + r * 0.7); c.lineTo(x - r * 0.3, y + r * 0.55); c.moveTo(x + r * 0.35, y + r * 0.2); c.lineTo(x + r * 0.75, y + r * 0.7); c.lineTo(x + r * 0.3, y + r * 0.55); c.moveTo(x - r * 0.15, y + r * 0.95); c.lineTo(x, y + r * 1.2); c.lineTo(x + r * 0.15, y + r * 0.95); c.stroke(); c.beginPath(); c.arc(x, y - r * 0.05, r * 0.17, 0, Math.PI * 2); c.stroke(); }
@@ -1101,7 +1112,18 @@ function itemIcon(id) {
   if (!iconCache[key]) {
     const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64;
     const c2 = cv2.getContext('2d'); c2.imageSmoothingEnabled = false;
-    drawItem(c2, id, 32, 32, 26, save.style);
+    drawItem(c2, id, isRocket(id) ? 26 : 32, 32, 26, save.style);
+    if (isRocket(id)) {
+      const t = String(ITEMS[id].steps), pix = save.style === 'pixel';
+      c2.font = (pix ? '10px "Press Start 2P", monospace' : '700 17px ' + (save.style === 'neon' ? 'Orbitron,' : '') + '"Black Han Sans", sans-serif');
+      const w = Math.min(40, c2.measureText(t).width + 8);
+      c2.fillStyle = save.style === 'neon' ? '#0a0418' : pix ? '#120c22' : '#ff6b3d';
+      if (pix) c2.fillRect(64 - w, 42, w, 20); else { c2.beginPath(); c2.roundRect(64 - w, 42, w, 20, 10); c2.fill(); }
+      if (save.style === 'neon') { c2.strokeStyle = '#ffb13d'; c2.lineWidth = 1.5; c2.beginPath(); c2.roundRect(64 - w + 1, 43, w - 2, 18, 9); c2.stroke(); }
+      c2.fillStyle = save.style === 'neon' ? '#ffb13d' : pix ? '#ffd23f' : '#ffffff';
+      c2.textAlign = 'center'; c2.textBaseline = 'middle';
+      c2.fillText(t, 64 - w / 2, 53, w - 4);
+    }
     iconCache[key] = cv2.toDataURL('image/png');
   }
   return iconCache[key];
@@ -1155,7 +1177,7 @@ function drawBubble(c, X, Y, s) {
 let fxKey = '';
 function renderFx() {
   const parts = [];
-  if (fx.auto > 0) parts.push(['rocket', fx.auto + '칸']);
+  if (fx.auto > 0) parts.push([fx.autoTotal >= 400 ? 'rocket400' : fx.autoTotal >= 200 ? 'rocket200' : fx.autoTotal >= 100 ? 'rocket100' : 'rocket', fx.auto + '칸']);
   if (fx.wing > 0) parts.push(['wing', Math.ceil(fx.wing) + '초']);
   if (fx.magnet > 0) parts.push(['magnet', Math.ceil(fx.magnet) + '초']);
   if (fx.shield > 0) parts.push(['shield', '×' + fx.shield]);
@@ -1186,7 +1208,9 @@ function renderEquip() {
     b.append(img, nm, ct);
     b.addEventListener('click', () => {
       if ((save.items[id] || 0) <= 0) { sfx.no(); openShop('items', josa(ITEMS[id].name, '이', '가') + ' 없어요. 여기서 살 수 있어요.'); return; }
-      save.equip[id] = !save.equip[id]; store.set('equip', save.equip); sfx.ui(); renderEquip();
+      save.equip[id] = !save.equip[id];
+      if (save.equip[id] && isRocket(id)) for (const k of ITEM_IDS) if (k !== id && isRocket(k)) save.equip[k] = false;
+      store.set('equip', save.equip); sfx.ui(); renderEquip();
     });
     box.append(b);
   }
@@ -1207,7 +1231,7 @@ function buildItems() {
     const img = document.createElement('img'); img.src = itemIcon(id); img.alt = '';
     const txt = document.createElement('div');
     const bn = document.createElement('b'); bn.textContent = it.name;
-    const sm = document.createElement('small'); sm.textContent = id === 'rocket' ? it.desc + ' · 상점에서만 팔아요' : it.desc + ' · ' + it.start;
+    const sm = document.createElement('small'); sm.textContent = isRocket(id) ? it.desc + ' · 상점에서만 팔아요' : it.desc + ' · ' + it.start;
     txt.append(bn, sm);
     const buy = document.createElement('div'); buy.className = 'buy';
     const own = document.createElement('span'); own.textContent = '보유 ' + n;
@@ -1218,6 +1242,7 @@ function buildItems() {
       const msg = $('shopMsg');
       if (save.coins < it.price) { sfx.no(); msg.textContent = '코인이 ' + (it.price - save.coins) + '개 더 필요해요.'; b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
       save.coins -= it.price; save.items[id] = n + 1; save.equip[id] = true;
+      if (isRocket(id)) for (const k of ITEM_IDS) if (k !== id && isRocket(k)) save.equip[k] = false;
       persist(); sfx.buy(); cloudSave();
       msg.textContent = josa(it.name, '을', '를') + ' 샀어요. 다음 판에 가져가도록 골라 뒀어요.';
       buildShop(); refreshMenu();
@@ -1247,7 +1272,7 @@ function gameOver() {
 function toMenu() {
   if (state === 'paused' && runCoins > 0) cloudSave();
   state = 'menu';
-  Object.assign(fx, { auto: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
+  Object.assign(fx, { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   resetWorld();
   hud.hidden = true; controls.hidden = true; hint.hidden = true;
   refreshMenu();
@@ -1278,8 +1303,8 @@ function frame(now) {
     if (autoActive()) {
       fx.acc += dt;
       let guard = 0;
-      while (state === 'play' && autoActive() && guard++ < 6) {
-        const iv = fx.auto > 0 ? 0.045 : 0.07;
+      while (state === 'play' && autoActive() && guard++ < 8) {
+        const iv = fx.auto > 0 ? rocketIv(fx.autoTotal) : 0.07;
         if (fx.acc < iv) break;
         fx.acc -= iv;
         autoStep();
@@ -1305,9 +1330,10 @@ function frame(now) {
     if (pv.t >= 1) { pv.vy -= 34 * dt; pv.y += pv.vy * dt; pv.rot += dt * 7 * facing; }
     if (state === 'falling' && failT > 1.05) gameOver();
   } else {
-    camX += (pv.x - camX) * Math.min(1, dt * 10);
+    const follow = fx.auto > 0 ? 18 : 10;
+    camX += (pv.x - camX) * Math.min(1, dt * follow);
     const ty = state === 'menu' ? pv.y - (AY - ch * 0.24) / H : pv.y;
-    camY += (ty - camY) * Math.min(1, dt * (state === 'menu' ? 4 : 10));
+    camY += (ty - camY) * Math.min(1, dt * (state === 'menu' ? 4 : follow));
   }
   if (shake > 0) shake = Math.max(0, shake - dt * 1.8);
   updParticles(dt);
