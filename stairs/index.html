@@ -465,6 +465,7 @@ let state = 'menu'; // menu | ready | play | falling | over | paused
 // run modes: endless (classic), coin (60 s coin rush), ta (time attack over a chosen distance)
 let runMode = 'endless', goal = 0, runClock = 0, penalties = 0, stun = 0;
 const COIN_TIME = 60;
+const COIN_PENALTY = 5;
 const fmtSec = ms => (ms / 1000).toFixed(2) + '초';
 let prevState = 'play';
 let failReason = '', failT = 0, overAt = 0;
@@ -1088,7 +1089,7 @@ function act(turn) {
 function stumble() {
   stun = 0.45; shake = 0.35; sfx.no();
   if (runMode === 'ta') { penalties++; runClock += 1; floatText(pv.x, p + 1.7, '+1초', '#ff8a8a'); }
-  else floatText(pv.x, p + 1.7, '앗!', '#ff8a8a');
+  else { penalties++; runClock = Math.min(COIN_TIME, runClock + COIN_PENALTY); floatText(pv.x, p + 1.7, '-' + COIN_PENALTY + '초', '#ff8a8a'); updHud(); }
   spawn(8, pv.x, p + 0.5, { col: '#ff8a8a', speed: 2.5, spread: Math.PI * 2, life: 0.4, size: 2.5, g: 2 });
 }
 function fail(reason, nx) {
@@ -1341,8 +1342,8 @@ function finishRun() {
     const prev = save.bests.coin || 0, isNew = runCoins > prev;
     if (isNew) save.bests.coin = runCoins;
     persist(); cloudSave(); cloudBoard();
-    showResult(COIN_TIME + '초가 끝났어요', '코인 런', [
-      ['모은 코인', runCoins], ['최고 코인', save.bests.coin || 0, isNew && runCoins > 0], ['오른 칸', p], ['보유 코인', save.coins]
+    showResult('시간이 다 됐어요', '코인 런', [
+      ['모은 코인', runCoins], ['최고 코인', save.bests.coin || 0, isNew && runCoins > 0], ['실수', penalties + '회 (-' + penalties * COIN_PENALTY + '초)'], ['보유 코인', save.coins]
     ]);
   } else {
     const key = 'ta' + goal, ms = Math.round(runClock * 1000), prev = save.bests[key] || 0, isNew = !prev || ms < prev;
@@ -1477,7 +1478,7 @@ function refreshMenu() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
   document.querySelectorAll('#distSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.d === save.taDist)));
   $('distSeg').hidden = m !== 'ta';
-  $('modeDesc').textContent = m === 'coin' ? COIN_TIME + '초 동안 코인을 최대한 모아요. 코인이 계단마다 쏟아지고, 틀려도 떨어지지 않고 잠깐 멈춰요.'
+  $('modeDesc').textContent = m === 'coin' ? COIN_TIME + '초 동안 코인을 최대한 모아요. 코인이 계단마다 쏟아져요. 틀리면 떨어지지는 않지만 남은 시간이 ' + COIN_PENALTY + '초 줄어요.'
     : m === 'ta' ? save.taDist + '칸을 얼마나 빨리 오르는지 겨뤄요. 틀리면 1초가 더해져요. 로켓은 쓸 수 없어요.'
     : '시간이 다 떨어지기 전에 한 칸씩 올라가요. 방향을 잘못 누르면 바로 떨어져요.';
   if (m === 'coin') { $('mBestL').textContent = '최고 코인'; $('mBest').textContent = save.bests.coin || 0; }
