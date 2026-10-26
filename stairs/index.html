@@ -115,6 +115,8 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .btn{flex:1 1 0;min-width:0;padding:14px 16px;border:var(--border);border-radius:var(--radius);background:transparent;box-shadow:inset 0 0 0 2px var(--line);font-family:var(--f-title);font-size:18px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:var(--shadow)}
+.btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:10px;padding-right:10px}
+#startBtn{flex-grow:1.6}
 #app[data-style="neon"] .btn.primary{box-shadow:0 0 18px #ff3df288;border-color:#ff3df2}
 .btn:active{transform:translateY(2px)}
 .label{font-size:12px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px}
@@ -198,6 +200,12 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 #app[data-style="pixel"] .eq,#app[data-style="pixel"] .itm,#app[data-style="pixel"] .fxc,#app[data-style="pixel"] .itm .buy .p{border-radius:0}
 #app[data-style="pixel"] .eq img,#app[data-style="pixel"] .itm img,#app[data-style="pixel"] .fxc img{image-rendering:pixelated}
 #shopTabs{grid-template-columns:1fr 1fr}
+#scoreSub{font-family:var(--f-body);font-size:13px;color:#fff;text-shadow:0 1px 0 #0007;margin-top:-4px;min-height:16px;font-variant-numeric:tabular-nums}
+#app[data-style="neon"] #scoreSub{text-shadow:0 0 8px #29f0ff}
+.modes{display:flex;flex-direction:column;gap:6px}
+#distSeg button,#boardTabs button{font-size:13px}
+#boardTabs{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+#boardTabs button{padding:8px 2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -208,7 +216,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
   <div id="hud" hidden>
     <div class="pill" aria-label="코인"><span class="coin-ico"></span><span id="hudCoins">0</span></div>
-    <div id="scoreWrap"><div id="score">0</div><div id="timer"><div id="timerFill"></div></div><div id="fx" aria-live="polite"></div></div>
+    <div id="scoreWrap"><div id="score">0</div><div id="scoreSub"></div><div id="timer"><div id="timerFill"></div></div><div id="fx" aria-live="polite"></div></div>
     <button id="pauseBtn" aria-label="일시정지"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg></button>
   </div>
 
@@ -230,10 +238,14 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
     <div class="card">
       <div>
         <h1 class="title">끝없는 계단</h1>
-        <p class="sub">시간이 다 떨어지기 전에 한 칸씩 올라가요. 방향을 잘못 누르면 바로 떨어져요.</p>
+        <p class="sub" id="modeDesc">시간이 다 떨어지기 전에 한 칸씩 올라가요. 방향을 잘못 누르면 바로 떨어져요.</p>
+      </div>
+      <div class="modes">
+        <div class="seg" id="modeSeg"><button data-m="endless">무한</button><button data-m="coin">코인 런</button><button data-m="ta">타임어택</button></div>
+        <div class="seg" id="distSeg" hidden><button data-d="50">50칸</button><button data-d="100">100칸</button><button data-d="200">200칸</button></div>
       </div>
       <div class="stats">
-        <div class="stat"><span>최고 기록</span><b id="mBest">0</b></div>
+        <div class="stat"><span id="mBestL">최고 기록</span><b id="mBest">0</b></div>
         <div class="stat"><span>보유 코인</span><b id="mCoins">0</b></div>
       </div>
       <div class="row">
@@ -281,6 +293,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <h2 class="title" style="font-size:30px">순위</h2>
         <p id="myRank"></p>
       </div>
+      <div class="seg" id="boardTabs"><button data-k="best">무한</button><button data-k="coin">코인 런</button><button data-k="ta50">50칸</button><button data-k="ta100">100칸</button><button data-k="ta200">200칸</button></div>
       <ul class="board" id="boardList"><li class="msg">순위를 불러오는 중…</li></ul>
       <div class="sync" data-s="loading"><i></i><span>저장 정보를 불러오는 중…</span></div>
       <button class="btn primary" id="boardBack">돌아가기</button>
@@ -310,13 +323,13 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
     <div class="card">
       <div>
         <div class="reason" id="oReason">발을 헛디뎠어요</div>
-        <h2 class="title" style="font-size:36px">게임 오버</h2>
+        <h2 class="title" style="font-size:36px" id="oTitle">게임 오버</h2>
       </div>
       <div class="stats">
-        <div class="stat"><span>이번 기록</span><b id="oScore">0</b></div>
-        <div class="stat"><span>최고 기록<span id="oNew"></span></span><b id="oBest">0</b></div>
-        <div class="stat"><span>획득 코인</span><b id="oCoins">0</b></div>
-        <div class="stat"><span>보유 코인</span><b id="oTotal">0</b></div>
+        <div class="stat"><span id="oL1"></span><b id="oV1">0</b></div>
+        <div class="stat"><span id="oL2"></span><b id="oV2">0</b></div>
+        <div class="stat"><span id="oL3"></span><b id="oV3">0</b></div>
+        <div class="stat"><span id="oL4"></span><b id="oV4">0</b></div>
       </div>
       <div class="sync" data-s="loading"><i></i><span>저장 정보를 불러오는 중…</span></div>
       <div class="row">
@@ -343,7 +356,10 @@ const save = {
   style: store.get('style', 'flat'),
   sound: store.get('sound', true),
   items: store.get('items', { wing: 0, shield: 0, magnet: 0, rocket: 0, rocket100: 0, rocket200: 0, rocket400: 0 }),
-  equip: store.get('equip', {})
+  equip: store.get('equip', {}),
+  bests: store.get('bests', {}),
+  mode: store.get('mode', 'endless'),
+  taDist: store.get('taDist', 100)
 };
 function persist() { for (const k in save) store.set(k, save[k]); }
 
@@ -446,6 +462,10 @@ window.addEventListener('resize', resize);
 let stairs = [], lastDir = 1, runLen = 0;
 let p = 0, facing = 1, score = 0, time = 1, runCoins = 0;
 let state = 'menu'; // menu | ready | play | falling | over | paused
+// run modes: endless (classic), coin (60 s coin rush), ta (time attack over a chosen distance)
+let runMode = 'endless', goal = 0, runClock = 0, penalties = 0, stun = 0;
+const COIN_TIME = 60;
+const fmtSec = ms => (ms / 1000).toFixed(2) + '초';
 let prevState = 'play';
 let failReason = '', failT = 0, overAt = 0;
 let camX = 0, camY = 0, shake = 0, clock = 0;
@@ -468,7 +488,8 @@ function ensure(n) {
     if (i > 2 && (Math.random() < turnChance(i) || runLen >= 8)) { d = -d; runLen = 0; }
     runLen++; lastDir = d;
     const s = { x: last.x + d, coin: 0 };
-    if (i > 4 && !last.coin) { const r = Math.random(); if (r < 0.015) s.coin = 2; else if (r < 0.13) s.coin = 1; }
+    if (runMode === 'coin') { if (i > 1) { const r = Math.random(); if (r < 0.06) s.coin = 2; else if (r < 0.7) s.coin = 1; } }
+    else if (i > 4 && !last.coin) { const r = Math.random(); if (r < 0.015) s.coin = 2; else if (r < 0.13) s.coin = 1; }
     if (i > 15 && !s.coin && !last.item) { const r = Math.random(); if (r < 0.007) s.item = 'wing'; else if (r < 0.016) s.item = 'shield'; else if (r < 0.028) s.item = 'magnet'; }
     stairs.push(s);
   }
@@ -780,7 +801,9 @@ const elScore = $('score'), elTimer = $('timer'), elFill = $('timerFill'), elCoi
 function show(id) { for (const o of ['menu', 'shop', 'board', 'pause', 'over']) $(o).hidden = o !== id; }
 
 /* ---------- cloud save (per-account) + leaderboard ---------- */
-const cloud = { db: null, user: null, uid: null, ok: false, writing: false, dirty: false, boardBest: 0, boardWriting: false, rows: null, boardState: 'loading', sync: 'loading' };
+const cloud = { db: null, user: null, uid: null, ok: false, writing: false, dirty: false, boardDoc: null, boardWriting: false, rows: null, boardState: 'loading', sync: 'loading', boardKey: 'best', unsub: null };
+const BOARD_KEYS = ['best', 'coin', 'ta50', 'ta100', 'ta200'];
+const lowerIsBetter = k => k.startsWith('ta');
 const SYNC_TEXT = {
   loading: '저장 정보를 불러오는 중…',
   cloud: '계정에 저장됨 · 다른 기기에서도 이어져요',
@@ -805,7 +828,7 @@ async function flush() {
   let retried = false;
   while (cloud.dirty) {
     cloud.dirty = false;
-    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, items: Object.assign({}, save.items), at: Date.now() };
+    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, items: Object.assign({}, save.items), bests: Object.assign({}, save.bests), at: Date.now() };
     try {
       await cloud.db.doc('data/users/' + cloud.uid + '/save').set(body);
     } catch (e) {
@@ -819,34 +842,50 @@ async function flush() {
   }
   cloud.writing = false; setSync('cloud');
 }
+function boardFields() {
+  const f = {};
+  if (save.best > 0) f.best = save.best;
+  for (const k of BOARD_KEYS) if (k !== 'best' && save.bests[k] > 0) f[k] = save.bests[k];
+  return f;
+}
 async function cloudBoard() {
-  if (!cloud.ok || cloud.boardWriting) return;
-  if (save.best <= 0 || save.best <= cloud.boardBest) return;
+  if (!cloud.ok || cloud.boardWriting || !cloud.boardDoc) return;
+  const f = boardFields(), cur = cloud.boardDoc;
+  const changed = BOARD_KEYS.some(k => (f[k] || 0) !== (Number(cur[k]) || 0));
+  if (!changed || !Object.keys(f).length) return;
   cloud.boardWriting = true;
-  const b = save.best;
-  try { await cloud.db.doc('scores/' + cloud.uid).set({ best: b, at: Date.now() }); cloud.boardBest = b; }
+  const body = Object.assign({}, f, { at: Date.now() });
+  try { await cloud.db.doc('scores/' + cloud.uid).set(body); cloud.boardDoc = body; }
   catch (e) { /* leaderboard is best-effort */ }
   cloud.boardWriting = false;
-  if (save.best > cloud.boardBest) cloudBoard();
+  const again = boardFields();
+  if (BOARD_KEYS.some(k => (again[k] || 0) !== (Number(cloud.boardDoc[k]) || 0))) cloudBoard();
 }
-function subscribeBoard() {
+function subscribeBoard(key) {
+  if (key) cloud.boardKey = key;
   if (!cloud.db) { cloud.boardState = 'off'; renderBoard(); return; }
+  if (cloud.unsub) { try { cloud.unsub(); } catch (e) {} cloud.unsub = null; }
+  const k = cloud.boardKey;
+  cloud.boardState = 'loading'; cloud.rows = null; renderBoard();
   try {
-    cloud.db.collection('scores').orderBy('best', 'desc').limit(30).onSnapshot(snap => {
-      cloud.rows = snap.docs.map(d => ({ id: d.id, best: Number((d.data() || {}).best) || 0 }));
+    cloud.unsub = cloud.db.collection('scores').where(k, '>', 0).orderBy(k, lowerIsBetter(k) ? 'asc' : 'desc').limit(30).onSnapshot(snap => {
+      if (k !== cloud.boardKey) return;
+      cloud.rows = snap.docs.map(d => ({ id: d.id, v: Number((d.data() || {})[k]) || 0 }));
       cloud.boardState = 'ok'; renderBoard();
-    }, () => { cloud.boardState = 'error'; renderBoard(); });
+    }, () => { if (k === cloud.boardKey) { cloud.boardState = 'error'; renderBoard(); } });
   } catch (e) { cloud.boardState = 'error'; renderBoard(); }
 }
 let boardSeq = 0;
 async function renderBoard() {
   const seq = ++boardSeq;
   const ul = $('boardList'), mine = $('myRank');
+  document.querySelectorAll('#boardTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === cloud.boardKey)));
   const msg = t => { ul.replaceChildren(); const li = document.createElement('li'); li.className = 'msg'; li.textContent = t; ul.append(li); mine.textContent = ''; };
   if (cloud.boardState === 'loading') return msg('순위를 불러오는 중…');
   if (cloud.boardState === 'off') return msg('순위표는 Claude에 로그인한 상태에서 볼 수 있어요.');
   if (cloud.boardState === 'error') return msg('순위를 불러오지 못했어요. 잠시 후 다시 열어 주세요.');
-  const rows = (cloud.rows || []).filter(r => r.best > 0);
+  document.querySelectorAll('#boardTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === cloud.boardKey)));
+  const rows = (cloud.rows || []).filter(r => r.v > 0);
   if (!rows.length) return msg('아직 기록이 없어요. 첫 기록을 남겨 보세요!');
   let ps = {};
   if (cloud.user) { try { ps = await cloud.user.profiles(rows.map(r => r.id)); } catch (e) { ps = {}; } }
@@ -862,7 +901,7 @@ async function renderBoard() {
     const img = document.createElement('img'); img.alt = ''; if (p.avatarUrl) img.src = p.avatarUrl; else img.style.visibility = 'hidden';
     const who = document.createElement('span'); who.className = 'who'; who.textContent = p.name || (isMe ? '나' : '이름 없는 플레이어');
     if (isMe && p.name) { const s = document.createElement('small'); s.textContent = '(나)'; who.append(s); }
-    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = r.best;
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = lowerIsBetter(cloud.boardKey) ? fmtSec(r.v) : r.v;
     li.append(rk, img, who, sc); ul.append(li);
   });
   mine.textContent = myRank ? '내 순위 ' + myRank + '위' : (cloud.ok ? '30위 안에 들면 여기에 보여요' : '');
@@ -909,6 +948,10 @@ async function initCloud() {
       needWrite = best !== (Number(d.best) || 0) || owned.length !== (Array.isArray(d.owned) ? d.owned.length : 0);
       save.best = best; save.coins = coins; save.owned = owned;
       if (d.items && typeof d.items === 'object') for (const k of ITEM_IDS) save.items[k] = Math.max(0, Number(d.items[k]) || 0);
+      const cb = (d.bests && typeof d.bests === 'object') ? d.bests : {}, lb = save.bests;
+      if ((Number(cb.coin) || 0) > (lb.coin || 0)) lb.coin = Number(cb.coin);
+      for (const k of ['ta50', 'ta100', 'ta200']) { const v = Number(cb[k]) || 0; if (v && (!lb[k] || v < lb[k])) lb[k] = v; }
+      for (const k of ['coin', 'ta50', 'ta100', 'ta200']) if ((lb[k] || 0) !== (Number(cb[k]) || 0)) needWrite = true;
       if (d.char && owned.includes(d.char)) save.char = d.char;
       if (!owned.includes(save.char)) save.char = 'sprout';
     }
@@ -916,7 +959,7 @@ async function initCloud() {
     cloud.ok = true;
     if (needWrite) cloudSave(); else setSync('cloud');
     refreshMenu(); buildShop(); updHud();
-    try { const sb = await db.doc('scores/' + uid).get(); cloud.boardBest = sb.exists ? (Number(sb.data().best) || 0) : 0; } catch (e) {}
+    try { const sb = await db.doc('scores/' + uid).get(); cloud.boardDoc = sb.exists ? Object.assign({}, sb.data()) : {}; } catch (e) { cloud.boardDoc = null; }
     cloudBoard();
   } catch (e) {
     setSync('error');
@@ -947,11 +990,15 @@ const autoActive = () => fx.auto > 0 || fx.wing > 0;
 
 function startRun() {
   ac();
+  runMode = save.mode === 'coin' || save.mode === 'ta' ? save.mode : 'endless';
+  goal = runMode === 'ta' ? save.taDist : 0;
+  runClock = 0; penalties = 0; stun = 0;
   resetWorld();
   Object.assign(fx, { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   const used = [];
   let rocketTaken = false;
   for (const id of ITEM_IDS) {
+    if (isRocket(id) && runMode === 'ta') continue; // rockets would skip the race; keep them for other modes
     if (isRocket(id) && save.equip[id] && rocketTaken) save.equip[id] = false;
     if (save.equip[id] && (save.items[id] || 0) > 0) { save.items[id]--; used.push(id); if (isRocket(id)) rocketTaken = true; }
     if (!((save.items[id] || 0) > 0)) save.equip[id] = false;
@@ -998,6 +1045,7 @@ function advance(turn, auto) {
     spawn(26, nx, p + 0.8, { col: '#ffffff', speed: 4, spread: Math.PI * 2, life: 0.9, size: 3, g: 2 });
   }
   updHud();
+  if (runMode === 'ta' && p >= goal) finishRun();
 }
 function pickItem(id, x, y) {
   if (id === 'wing') fx.wing = Math.min(7, fx.wing + 3.5);
@@ -1026,14 +1074,22 @@ function shieldSave(reason) {
 }
 function act(turn) {
   if (state !== 'ready' && state !== 'play') return;
-  if (autoActive()) return;
+  if (autoActive() || stun > 0) return;
   if (state === 'ready') { state = 'play'; hint.style.opacity = 0; setTimeout(() => { hint.hidden = true; }, 300); }
   if (turn) facing = -facing;
   ensure(p + 50);
   const nx = stairs[p].x + facing;
   if (stairs[p + 1].x === nx) advance(turn, false);
   else if (fx.shield > 0) shieldSave('miss');
+  else if (runMode !== 'endless') stumble();
   else fail('miss', nx);
+}
+// coin run / time attack: a wrong press doesn't end the run, it costs time
+function stumble() {
+  stun = 0.45; shake = 0.35; sfx.no();
+  if (runMode === 'ta') { penalties++; runClock += 1; floatText(pv.x, p + 1.7, '+1초', '#ff8a8a'); }
+  else floatText(pv.x, p + 1.7, '앗!', '#ff8a8a');
+  spawn(8, pv.x, p + 0.5, { col: '#ff8a8a', speed: 2.5, spread: Math.PI * 2, life: 0.4, size: 2.5, g: 2 });
 }
 function fail(reason, nx) {
   state = 'falling'; failReason = reason; failT = 0;
@@ -1254,20 +1310,48 @@ document.querySelectorAll('#shopTabs button').forEach(b => b.addEventListener('c
   shopTab = b.dataset.tab; pending = null; sfx.ui(); buildShop();
   $('shopMsg').textContent = shopTab === 'items' ? '아이템은 계단 위에서도 가끔 주울 수 있어요.' : '계단 위 코인을 모아 새 캐릭터를 열어요.';
 }));
+function showResult(reason, title, stats) {
+  controls.hidden = true;
+  $('oReason').textContent = reason;
+  $('oTitle').textContent = title;
+  stats.forEach(([label, value, isNew], i) => {
+    const l = $('oL' + (i + 1)); l.textContent = label;
+    if (isNew) { const n = document.createElement('span'); n.className = 'new'; n.textContent = 'NEW'; l.append(n); }
+    $('oV' + (i + 1)).textContent = value;
+  });
+  show('over');
+}
 function gameOver() {
   state = 'over'; overAt = performance.now();
   const isNew = score > save.best;
   if (isNew) save.best = score;
   persist();
   cloudSave(); cloudBoard();
-  $('oReason').textContent = failReason === 'time' ? '시간이 다 됐어요' : '발을 헛디뎠어요';
-  $('oScore').textContent = score;
-  $('oBest').textContent = save.best;
-  $('oNew').innerHTML = isNew && score > 0 ? '<span class="new">NEW</span>' : '';
-  $('oCoins').textContent = '+' + runCoins;
-  $('oTotal').textContent = save.coins;
-  controls.hidden = true;
-  show('over');
+  showResult(failReason === 'time' ? '시간이 다 됐어요' : '발을 헛디뎠어요', '게임 오버', [
+    ['이번 기록', score], ['최고 기록', save.best, isNew && score > 0], ['획득 코인', '+' + runCoins], ['보유 코인', save.coins]
+  ]);
+}
+function finishRun() {
+  if (state !== 'play') return;
+  state = 'over'; overAt = performance.now();
+  fx.auto = 0; fx.wing = 0;
+  sfx.mile(); shake = 0;
+  spawn(30, pv.x, p + 0.8, { col: '#ffffff', speed: 4.5, spread: Math.PI * 2, life: 1, size: 3, g: 2 });
+  if (runMode === 'coin') {
+    const prev = save.bests.coin || 0, isNew = runCoins > prev;
+    if (isNew) save.bests.coin = runCoins;
+    persist(); cloudSave(); cloudBoard();
+    showResult(COIN_TIME + '초가 끝났어요', '코인 런', [
+      ['모은 코인', runCoins], ['최고 코인', save.bests.coin || 0, isNew && runCoins > 0], ['오른 칸', p], ['보유 코인', save.coins]
+    ]);
+  } else {
+    const key = 'ta' + goal, ms = Math.round(runClock * 1000), prev = save.bests[key] || 0, isNew = !prev || ms < prev;
+    if (isNew) save.bests[key] = ms;
+    persist(); cloudSave(); cloudBoard();
+    showResult(goal + '칸 완주!', '타임어택', [
+      ['이번 기록', fmtSec(ms)], ['최고 기록', fmtSec(save.bests[key]), isNew], ['실수', penalties + '회 (+' + penalties + '초)'], ['획득 코인', '+' + runCoins]
+    ]);
+  }
 }
 function toMenu() {
   if (state === 'paused' && runCoins > 0) cloudSave();
@@ -1288,8 +1372,11 @@ function resume() {
   if (state !== 'paused') return;
   state = prevState; show(null);
 }
+const elSub = $('scoreSub');
 function updHud() {
-  elScore.textContent = score;
+  if (runMode === 'coin') { elScore.textContent = runCoins; elSub.textContent = '모은 코인 · ' + Math.max(0, Math.ceil(COIN_TIME - runClock)) + '초 남음'; }
+  else if (runMode === 'ta') { elScore.textContent = runClock.toFixed(2); elSub.textContent = Math.min(p, goal) + ' / ' + goal + '칸' + (penalties ? ' · 실수 ' + penalties : ''); }
+  else { elScore.textContent = score; elSub.textContent = ''; }
   elCoins.textContent = save.coins;
 }
 
@@ -1312,11 +1399,17 @@ function frame(now) {
       }
       if (fx.auto <= 0 && fx.wing > 0) fx.wing = Math.max(0, fx.wing - dt);
       if (!autoActive()) fx.acc = 0;
-    } else {
+    } else if (runMode === 'endless') {
       time -= drainRate() * dt;
       if (time <= 0) { time = 0; if (fx.shield > 0) shieldSave('time'); else fail('time'); }
     }
     if (fx.magnet > 0) fx.magnet = Math.max(0, fx.magnet - dt);
+    if (stun > 0) stun = Math.max(0, stun - dt);
+    if (runMode !== 'endless' && state === 'play') {
+      runClock += dt;
+      if (runMode === 'coin' && runClock >= COIN_TIME) { runClock = COIN_TIME; finishRun(); }
+      updHud();
+    }
   }
   // player visual
   if (pv.t < 1) {
@@ -1339,8 +1432,9 @@ function frame(now) {
   updParticles(dt);
   // timer ui
   if (!hud.hidden) {
-    elFill.style.transform = 'scaleX(' + Math.max(0, time).toFixed(4) + ')';
-    elTimer.classList.toggle('low', time < 0.25 && state === 'play' && !autoActive());
+    const g = runMode === 'coin' ? 1 - runClock / COIN_TIME : runMode === 'ta' ? Math.min(1, p / goal) : time;
+    elFill.style.transform = 'scaleX(' + Math.max(0, g).toFixed(4) + ')';
+    elTimer.classList.toggle('low', state === 'play' && (runMode === 'coin' ? COIN_TIME - runClock < 10 : runMode === 'endless' && time < 0.25 && !autoActive()));
     renderFx();
   }
   render();
@@ -1379,7 +1473,16 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 /* ---------- menus ---------- */
 function refreshMenu() {
   renderEquip();
-  $('mBest').textContent = save.best;
+  const m = save.mode;
+  document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
+  document.querySelectorAll('#distSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.d === save.taDist)));
+  $('distSeg').hidden = m !== 'ta';
+  $('modeDesc').textContent = m === 'coin' ? COIN_TIME + '초 동안 코인을 최대한 모아요. 코인이 계단마다 쏟아지고, 틀려도 떨어지지 않고 잠깐 멈춰요.'
+    : m === 'ta' ? save.taDist + '칸을 얼마나 빨리 오르는지 겨뤄요. 틀리면 1초가 더해져요. 로켓은 쓸 수 없어요.'
+    : '시간이 다 떨어지기 전에 한 칸씩 올라가요. 방향을 잘못 누르면 바로 떨어져요.';
+  if (m === 'coin') { $('mBestL').textContent = '최고 코인'; $('mBest').textContent = save.bests.coin || 0; }
+  else if (m === 'ta') { const v = save.bests['ta' + save.taDist]; $('mBestL').textContent = '최고 기록 (' + save.taDist + '칸)'; $('mBest').textContent = v ? fmtSec(v) : '-'; }
+  else { $('mBestL').textContent = '최고 기록'; $('mBest').textContent = save.best; }
   $('mCoins').textContent = save.coins;
   $('sCoins').textContent = save.coins;
   document.querySelectorAll('[data-seg="style"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === save.style)));
@@ -1392,12 +1495,16 @@ function setStyle(v) {
   sfx.ui();
 }
 document.querySelectorAll('[data-seg="style"] button').forEach(b => b.addEventListener('click', () => setStyle(b.dataset.v)));
+document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => { save.mode = b.dataset.m; store.set('mode', save.mode); sfx.ui(); refreshMenu(); }));
+document.querySelectorAll('#distSeg button').forEach(b => b.addEventListener('click', () => { save.taDist = +b.dataset.d; store.set('taDist', save.taDist); sfx.ui(); refreshMenu(); }));
 document.querySelectorAll('[data-toggle="sound"]').forEach(b => b.addEventListener('click', () => {
   save.sound = !save.sound; store.set('sound', save.sound); refreshMenu(); if (save.sound) { ac(); sfx.ui(); }
 }));
 $('startBtn').addEventListener('click', () => { sfx.ui(); startRun(); });
 $('shopBtn').addEventListener('click', () => { sfx.ui(); openShop('chars'); });
-$('boardBtn').addEventListener('click', () => { ac(); sfx.ui(); renderBoard(); show('board'); });
+const boardKeyFor = () => save.mode === 'coin' ? 'coin' : save.mode === 'ta' ? 'ta' + save.taDist : 'best';
+$('boardBtn').addEventListener('click', () => { ac(); sfx.ui(); if (cloud.db) subscribeBoard(boardKeyFor()); else renderBoard(); show('board'); });
+document.querySelectorAll('#boardTabs button').forEach(b => b.addEventListener('click', () => { sfx.ui(); if (cloud.db) subscribeBoard(b.dataset.k); }));
 $('boardBack').addEventListener('click', () => { sfx.ui(); show('menu'); });
 $('shopBack').addEventListener('click', () => { sfx.ui(); refreshMenu(); show('menu'); });
 $('retryBtn').addEventListener('click', () => { sfx.ui(); startRun(); });
@@ -1461,6 +1568,9 @@ if (!save.owned.includes(save.char)) save.char = 'sprout';
 if (!save.items || typeof save.items !== 'object') save.items = {};
 if (!save.equip || typeof save.equip !== 'object') save.equip = {};
 for (const k of ITEM_IDS) save.items[k] = Math.max(0, Number(save.items[k]) || 0);
+if (!save.bests || typeof save.bests !== 'object') save.bests = {};
+if (!['endless', 'coin', 'ta'].includes(save.mode)) save.mode = 'endless';
+if (![50, 100, 200].includes(save.taDist)) save.taDist = 100;
 app.dataset.style = save.style;
 resize();
 resetWorld();
