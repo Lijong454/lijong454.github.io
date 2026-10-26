@@ -143,6 +143,18 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 #app[data-style="pixel"] .char{border-radius:0}
 .char canvas{width:72px;height:80px;image-rendering:pixelated}
 .char .nm{font-weight:600;font-size:14px}
+.char .pk{font-size:11px;line-height:1.35;color:var(--accent);min-height:30px;font-weight:600}
+#app[data-style="neon"] .char .pk{color:#29f0ff}
+.char.locked .pk{opacity:.75}
+.recs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.rec{border:1px solid var(--line);border-radius:10px;padding:7px 2px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
+#app[data-style="pixel"] .rec{border-radius:0;border-width:2px}
+.rec span{font-size:11px;color:var(--muted);white-space:nowrap}
+.rec b{font-family:var(--f-num);font-weight:400;font-size:clamp(11px,3.3vw,13px);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#app[data-style="pixel"] .rec b{font-size:9px}
+.rec.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+#perkLine{margin:0;font-size:12px;color:var(--muted)}
+#perkLine b{color:var(--ink)}
 .char .pr{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;justify-content:center;min-height:16px}
 .char .pr .coin-ico{width:12px;height:12px}
 .char.sel{box-shadow:inset 0 0 0 3px var(--accent)}
@@ -244,10 +256,15 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <div class="seg" id="modeSeg"><button data-m="endless">무한</button><button data-m="coin">코인 런</button><button data-m="ta">타임어택</button></div>
         <div class="seg" id="distSeg" hidden><button data-d="50">50칸</button><button data-d="100">100칸</button><button data-d="200">200칸</button></div>
       </div>
-      <div class="stats">
-        <div class="stat"><span id="mBestL">최고 기록</span><b id="mBest">0</b></div>
-        <div class="stat"><span>보유 코인</span><b id="mCoins">0</b></div>
+      <div>
+        <div class="label">최고 기록 · 무한은 칸, 코인 런은 코인, 타임어택은 초</div>
+        <div class="recs" id="recs"></div>
       </div>
+      <div class="stats">
+        <div class="stat"><span>보유 코인</span><b id="mCoins">0</b></div>
+        <div class="stat"><span>지금까지 오른 계단</span><b id="mTotal">0</b></div>
+      </div>
+      <p id="perkLine"></p>
       <div class="row">
         <button class="btn primary" id="startBtn">시작하기</button>
         <button class="btn" id="shopBtn">상점</button>
@@ -358,6 +375,7 @@ const save = {
   items: store.get('items', { wing: 0, shield: 0, magnet: 0, rocket: 0, rocket100: 0, rocket200: 0, rocket400: 0 }),
   equip: store.get('equip', {}),
   bests: store.get('bests', {}),
+  totalStairs: store.get('totalStairs', 0),
   mode: store.get('mode', 'endless'),
   taDist: store.get('taDist', 100)
 };
@@ -465,6 +483,19 @@ let state = 'menu'; // menu | ready | play | falling | over | paused
 // run modes: endless (classic), coin (60 s coin rush), ta (time attack over a chosen distance)
 let runMode = 'endless', goal = 0, runClock = 0, penalties = 0, stun = 0;
 const COIN_TIME = 60;
+let coinLimit = COIN_TIME, coinCarry = 0;
+// character abilities: pricier characters get stronger perks
+const PERKS = {
+  sprout:  { text: '능력 없음' },
+  builder: { coinBonus: 0.10, text: '코인 +10%' },
+  mail:    { coinBonus: 0.05, itemRate: 2, text: '아이템 2배 자주 · 코인 +5%' },
+  penguin: { drainMul: 0.85, coinTime: 5, taPenalty: 0.7, text: '게이지 15% 느림 · 코인 런 +5초 · 타임어택 벌칙 0.7초' },
+  robot:   { coinBonus: 0.10, startShield: 1, text: '방패 1개로 시작 · 코인 +10%' },
+  fox:     { coinBonus: 0.25, magnetMul: 2, text: '코인 +25% · 자석 시간 2배' },
+  astro:   { coinBonus: 0.30, drainMul: 0.8, coinTime: 5, taPenalty: 0.7, startShield: 1, wingMul: 1.5, text: '코인 +30% · 게이지 20% 느림 · 코인 런 +5초 · 방패로 시작 · 날개 1.5배' }
+};
+let perk = PERKS.sprout;
+const perkOf = id => PERKS[id] || PERKS.sprout;
 const COIN_PENALTY = 5;
 const fmtSec = ms => (ms / 1000).toFixed(2) + '초';
 let prevState = 'play';
@@ -491,7 +522,7 @@ function ensure(n) {
     const s = { x: last.x + d, coin: 0 };
     if (runMode === 'coin') { if (i > 1) { const r = Math.random(); if (r < 0.06) s.coin = 2; else if (r < 0.7) s.coin = 1; } }
     else if (i > 4 && !last.coin) { const r = Math.random(); if (r < 0.015) s.coin = 2; else if (r < 0.13) s.coin = 1; }
-    if (i > 15 && !s.coin && !last.item) { const r = Math.random(); if (r < 0.007) s.item = 'wing'; else if (r < 0.016) s.item = 'shield'; else if (r < 0.028) s.item = 'magnet'; }
+    if (i > 15 && !s.coin && !last.item) { const r = Math.random() / (perk.itemRate || 1); if (r < 0.007) s.item = 'wing'; else if (r < 0.016) s.item = 'shield'; else if (r < 0.028) s.item = 'magnet'; }
     stairs.push(s);
   }
 }
@@ -829,7 +860,7 @@ async function flush() {
   let retried = false;
   while (cloud.dirty) {
     cloud.dirty = false;
-    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, items: Object.assign({}, save.items), bests: Object.assign({}, save.bests), at: Date.now() };
+    const body = { best: save.best, coins: save.coins, owned: save.owned.slice(), char: save.char, items: Object.assign({}, save.items), bests: Object.assign({}, save.bests), totalStairs: save.totalStairs || 0, at: Date.now() };
     try {
       await cloud.db.doc('data/users/' + cloud.uid + '/save').set(body);
     } catch (e) {
@@ -953,6 +984,8 @@ async function initCloud() {
       if ((Number(cb.coin) || 0) > (lb.coin || 0)) lb.coin = Number(cb.coin);
       for (const k of ['ta50', 'ta100', 'ta200']) { const v = Number(cb[k]) || 0; if (v && (!lb[k] || v < lb[k])) lb[k] = v; }
       for (const k of ['coin', 'ta50', 'ta100', 'ta200']) if ((lb[k] || 0) !== (Number(cb[k]) || 0)) needWrite = true;
+      const ts = Number(d.totalStairs) || 0;
+      if ((save.totalStairs || 0) > ts) needWrite = true; else save.totalStairs = ts;
       if (d.char && owned.includes(d.char)) save.char = d.char;
       if (!owned.includes(save.char)) save.char = 'sprout';
     }
@@ -993,7 +1026,9 @@ function startRun() {
   ac();
   runMode = save.mode === 'coin' || save.mode === 'ta' ? save.mode : 'endless';
   goal = runMode === 'ta' ? save.taDist : 0;
-  runClock = 0; penalties = 0; stun = 0;
+  runClock = 0; penalties = 0; stun = 0; coinCarry = 0;
+  perk = perkOf(save.char);
+  coinLimit = COIN_TIME + (perk.coinTime || 0);
   resetWorld();
   Object.assign(fx, { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   const used = [];
@@ -1006,9 +1041,10 @@ function startRun() {
   }
   const rk = used.filter(isRocket).map(id => ITEMS[id].steps);
   if (rk.length) { fx.auto = Math.max(...rk); fx.autoTotal = fx.auto; }
-  if (used.includes('wing')) fx.wing = 3.5;
+  if (used.includes('wing')) fx.wing = 3.5 * (perk.wingMul || 1);
   if (used.includes('shield')) fx.shield = 1;
-  if (used.includes('magnet')) fx.magnet = 15;
+  fx.shield += perk.startShield || 0;
+  if (used.includes('magnet')) fx.magnet = 15 * (perk.magnetMul || 1);
   if (used.length) { persist(); cloudSave(); }
   show(null);
   hud.hidden = false; controls.hidden = false;
@@ -1025,6 +1061,7 @@ function floatText(x, y, text, col) {
 function advance(turn, auto) {
   const cur = stairs[p];
   p++; score = p;
+  save.totalStairs = (save.totalStairs || 0) + 1;
   const s = stairs[p], nx = s.x;
   hop(nx, p, auto ? (fx.auto > 0 ? rocketIv(fx.autoTotal) : 0.07) : 0.085);
   time = Math.min(1, time + GAIN);
@@ -1032,7 +1069,8 @@ function advance(turn, auto) {
   spawn(auto ? 2 : 4, cur.x, p - 1, { col: save.style === 'neon' ? zoneAt(camY).st : 'rgba(255,255,255,.9)', speed: 1.4, spread: 2.2, life: 0.35, size: 2.5, g: 2 });
   if (s.coin) {
     const mult = fx.magnet > 0 ? 2 : 1;
-    const v = (s.coin === 2 ? 5 : 1) * mult;
+    let v = (s.coin === 2 ? 5 : 1) * mult;
+    if (perk.coinBonus) { coinCarry += v * perk.coinBonus; const extra = Math.floor(coinCarry + 1e-9); coinCarry -= extra; v += extra; }
     runCoins += v; save.coins += v;
     spawn(10, nx, p + 0.9, { col: s.coin === 2 ? '#4dfcff' : '#ffd23f', speed: 3, spread: Math.PI * 2, life: 0.5, size: 3, g: 3 });
     floatText(nx, p + 1.3, '+' + v, s.coin === 2 ? '#bff8ff' : '#fff2a8');
@@ -1049,9 +1087,9 @@ function advance(turn, auto) {
   if (runMode === 'ta' && p >= goal) finishRun();
 }
 function pickItem(id, x, y) {
-  if (id === 'wing') fx.wing = Math.min(7, fx.wing + 3.5);
+  if (id === 'wing') fx.wing = Math.min(10, fx.wing + 3.5 * (perk.wingMul || 1));
   else if (id === 'shield') fx.shield = Math.min(3, fx.shield + 1);
-  else if (id === 'magnet') fx.magnet = Math.min(20, fx.magnet + 8);
+  else if (id === 'magnet') fx.magnet = Math.min(40, fx.magnet + 8 * (perk.magnetMul || 1));
   sfx.item();
   spawn(16, x, y + 0.9, { col: '#ffffff', speed: 3.5, spread: Math.PI * 2, life: 0.6, size: 3, g: 2 });
   floatText(x, y + 1.6, ITEMS[id].name + '!', '#ffffff');
@@ -1088,8 +1126,8 @@ function act(turn) {
 // coin run / time attack: a wrong press doesn't end the run, it costs time
 function stumble() {
   stun = 0.45; shake = 0.35; sfx.no();
-  if (runMode === 'ta') { penalties++; runClock += 1; floatText(pv.x, p + 1.7, '+1초', '#ff8a8a'); }
-  else { penalties++; runClock = Math.min(COIN_TIME, runClock + COIN_PENALTY); floatText(pv.x, p + 1.7, '-' + COIN_PENALTY + '초', '#ff8a8a'); updHud(); }
+  if (runMode === 'ta') { const pen = perk.taPenalty || 1; penalties++; runClock += pen; floatText(pv.x, p + 1.7, '+' + pen + '초', '#ff8a8a'); }
+  else { penalties++; runClock = Math.min(coinLimit, runClock + COIN_PENALTY); floatText(pv.x, p + 1.7, '-' + COIN_PENALTY + '초', '#ff8a8a'); updHud(); }
   spawn(8, pv.x, p + 0.5, { col: '#ff8a8a', speed: 2.5, spread: Math.PI * 2, life: 0.4, size: 2.5, g: 2 });
 }
 function fail(reason, nx) {
@@ -1343,19 +1381,19 @@ function finishRun() {
     if (isNew) save.bests.coin = runCoins;
     persist(); cloudSave(); cloudBoard();
     showResult('시간이 다 됐어요', '코인 런', [
-      ['모은 코인', runCoins], ['최고 코인', save.bests.coin || 0, isNew && runCoins > 0], ['실수', penalties + '회 (-' + penalties * COIN_PENALTY + '초)'], ['보유 코인', save.coins]
+      ['모은 코인', runCoins], ['최고 코인', save.bests.coin || 0, isNew && runCoins > 0], ['실수', penalties + '회 (-' + penalties * COIN_PENALTY + '초)'], ['오른 칸', p + '칸']
     ]);
   } else {
     const key = 'ta' + goal, ms = Math.round(runClock * 1000), prev = save.bests[key] || 0, isNew = !prev || ms < prev;
     if (isNew) save.bests[key] = ms;
     persist(); cloudSave(); cloudBoard();
     showResult(goal + '칸 완주!', '타임어택', [
-      ['이번 기록', fmtSec(ms)], ['최고 기록', fmtSec(save.bests[key]), isNew], ['실수', penalties + '회 (+' + penalties + '초)'], ['획득 코인', '+' + runCoins]
+      ['이번 기록', fmtSec(ms)], ['최고 기록', fmtSec(save.bests[key]), isNew], ['실수', penalties + '회 (+' + Math.round(penalties * (perk.taPenalty || 1) * 10) / 10 + '초)'], ['획득 코인', '+' + runCoins]
     ]);
   }
 }
 function toMenu() {
-  if (state === 'paused' && runCoins > 0) cloudSave();
+  if (state === 'paused') persist();
   state = 'menu';
   Object.assign(fx, { auto: 0, autoTotal: 0, wing: 0, magnet: 0, shield: 0, acc: 0 });
   resetWorld();
@@ -1367,7 +1405,8 @@ function pause() {
   if (state !== 'play' && state !== 'ready') return;
   prevState = state; state = 'paused';
   show('pause');
-  if (runCoins > 0) cloudSave();
+  persist();
+  if (runCoins > 0 || p > 0) cloudSave();
 }
 function resume() {
   if (state !== 'paused') return;
@@ -1375,9 +1414,9 @@ function resume() {
 }
 const elSub = $('scoreSub');
 function updHud() {
-  if (runMode === 'coin') { elScore.textContent = runCoins; elSub.textContent = '모은 코인 · ' + Math.max(0, Math.ceil(COIN_TIME - runClock)) + '초 남음'; }
+  if (runMode === 'coin') { elScore.textContent = runCoins; elSub.textContent = Math.max(0, Math.ceil(coinLimit - runClock)) + '초 남음 · ' + p + '칸 오름'; }
   else if (runMode === 'ta') { elScore.textContent = runClock.toFixed(2); elSub.textContent = Math.min(p, goal) + ' / ' + goal + '칸' + (penalties ? ' · 실수 ' + penalties : ''); }
-  else { elScore.textContent = score; elSub.textContent = ''; }
+  else { elScore.textContent = score; elSub.textContent = score ? '칸' : ''; }
   elCoins.textContent = save.coins;
 }
 
@@ -1401,14 +1440,14 @@ function frame(now) {
       if (fx.auto <= 0 && fx.wing > 0) fx.wing = Math.max(0, fx.wing - dt);
       if (!autoActive()) fx.acc = 0;
     } else if (runMode === 'endless') {
-      time -= drainRate() * dt;
+      time -= drainRate() * (perk.drainMul || 1) * dt;
       if (time <= 0) { time = 0; if (fx.shield > 0) shieldSave('time'); else fail('time'); }
     }
     if (fx.magnet > 0) fx.magnet = Math.max(0, fx.magnet - dt);
     if (stun > 0) stun = Math.max(0, stun - dt);
     if (runMode !== 'endless' && state === 'play') {
       runClock += dt;
-      if (runMode === 'coin' && runClock >= COIN_TIME) { runClock = COIN_TIME; finishRun(); }
+      if (runMode === 'coin' && runClock >= coinLimit) { runClock = coinLimit; finishRun(); }
       updHud();
     }
   }
@@ -1433,9 +1472,9 @@ function frame(now) {
   updParticles(dt);
   // timer ui
   if (!hud.hidden) {
-    const g = runMode === 'coin' ? 1 - runClock / COIN_TIME : runMode === 'ta' ? Math.min(1, p / goal) : time;
+    const g = runMode === 'coin' ? 1 - runClock / coinLimit : runMode === 'ta' ? Math.min(1, p / goal) : time;
     elFill.style.transform = 'scaleX(' + Math.max(0, g).toFixed(4) + ')';
-    elTimer.classList.toggle('low', state === 'play' && (runMode === 'coin' ? COIN_TIME - runClock < 10 : runMode === 'endless' && time < 0.25 && !autoActive()));
+    elTimer.classList.toggle('low', state === 'play' && (runMode === 'coin' ? coinLimit - runClock < 10 : runMode === 'endless' && time < 0.25 && !autoActive()));
     renderFx();
   }
   render();
@@ -1478,12 +1517,27 @@ function refreshMenu() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
   document.querySelectorAll('#distSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.d === save.taDist)));
   $('distSeg').hidden = m !== 'ta';
-  $('modeDesc').textContent = m === 'coin' ? COIN_TIME + '초 동안 코인을 최대한 모아요. 코인이 계단마다 쏟아져요. 틀리면 떨어지지는 않지만 남은 시간이 ' + COIN_PENALTY + '초 줄어요.'
-    : m === 'ta' ? save.taDist + '칸을 얼마나 빨리 오르는지 겨뤄요. 틀리면 1초가 더해져요. 로켓은 쓸 수 없어요.'
+  $('modeDesc').textContent = m === 'coin' ? (COIN_TIME + (perkOf(save.char).coinTime || 0)) + '초 동안 코인을 최대한 모아요. 코인이 계단마다 쏟아져요. 틀리면 떨어지지는 않지만 남은 시간이 ' + COIN_PENALTY + '초 줄어요.'
+    : m === 'ta' ? save.taDist + '칸을 얼마나 빨리 오르는지 겨뤄요. 틀리면 ' + (perkOf(save.char).taPenalty || 1) + '초가 더해져요. 로켓은 쓸 수 없어요.'
     : '시간이 다 떨어지기 전에 한 칸씩 올라가요. 방향을 잘못 누르면 바로 떨어져요.';
-  if (m === 'coin') { $('mBestL').textContent = '최고 코인'; $('mBest').textContent = save.bests.coin || 0; }
-  else if (m === 'ta') { const v = save.bests['ta' + save.taDist]; $('mBestL').textContent = '최고 기록 (' + save.taDist + '칸)'; $('mBest').textContent = v ? fmtSec(v) : '-'; }
-  else { $('mBestL').textContent = '최고 기록'; $('mBest').textContent = save.best; }
+  const recs = [
+    ['무한', save.best ? String(save.best) : '-', m === 'endless'],
+    ['코인 런', save.bests.coin ? save.bests.coin + '' : '-', m === 'coin'],
+    ['50칸', save.bests.ta50 ? (save.bests.ta50 / 1000).toFixed(2) : '-', m === 'ta' && save.taDist === 50],
+    ['100칸', save.bests.ta100 ? (save.bests.ta100 / 1000).toFixed(2) : '-', m === 'ta' && save.taDist === 100],
+    ['200칸', save.bests.ta200 ? (save.bests.ta200 / 1000).toFixed(2) : '-', m === 'ta' && save.taDist === 200]
+  ];
+  const rb = $('recs'); rb.replaceChildren();
+  for (const [l, v, on] of recs) {
+    const d = document.createElement('div'); d.className = 'rec' + (on ? ' on' : '');
+    const a = document.createElement('span'); a.textContent = l;
+    const b = document.createElement('b'); b.textContent = v; b.title = v;
+    d.append(a, b); rb.append(d);
+  }
+  $('mTotal').textContent = (save.totalStairs || 0).toLocaleString('ko-KR');
+  const pl = $('perkLine'); pl.replaceChildren();
+  const cb = document.createElement('b'); cb.textContent = (CHARS.find(c => c.id === save.char) || CHARS[0]).name;
+  pl.append(cb, document.createTextNode(' 능력 · ' + perkOf(save.char).text));
   $('mCoins').textContent = save.coins;
   $('sCoins').textContent = save.coins;
   document.querySelectorAll('[data-seg="style"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === save.style)));
@@ -1529,13 +1583,14 @@ function buildShop() {
     const c = cvs.getContext('2d'); c.imageSmoothingEnabled = false;
     drawChar(c, 72, 140, save.style === 'pixel' ? 6 : 6, ch.id, 1, 0, save.style);
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = ch.name;
+    const pk = document.createElement('div'); pk.className = 'pk'; pk.textContent = perkOf(ch.id).text;
     const pr = document.createElement('div'); pr.className = 'pr';
     if (sel) pr.textContent = '사용 중';
     else if (owned) pr.textContent = '선택하기';
     else if (pending === ch.id) pr.textContent = '한 번 더 누르면 구매';
     else pr.innerHTML = '<span class="coin-ico"></span>' + ch.price;
-    b.append(cvs, nm, pr);
-    b.setAttribute('aria-label', ch.name + (owned ? (sel ? ', 사용 중' : ', 보유') : ', ' + ch.price + '코인'));
+    b.append(cvs, nm, pk, pr);
+    b.setAttribute('aria-label', ch.name + ', ' + perkOf(ch.id).text + (owned ? (sel ? ', 사용 중' : ', 보유') : ', ' + ch.price + '코인'));
     b.addEventListener('click', () => onChar(ch, b));
     grid.append(b);
   }
@@ -1570,6 +1625,7 @@ if (!save.items || typeof save.items !== 'object') save.items = {};
 if (!save.equip || typeof save.equip !== 'object') save.equip = {};
 for (const k of ITEM_IDS) save.items[k] = Math.max(0, Number(save.items[k]) || 0);
 if (!save.bests || typeof save.bests !== 'object') save.bests = {};
+save.totalStairs = Math.max(0, Number(save.totalStairs) || 0);
 if (!['endless', 'coin', 'ta'].includes(save.mode)) save.mode = 'endless';
 if (![50, 100, 200].includes(save.taDist)) save.taDist = 100;
 app.dataset.style = save.style;
