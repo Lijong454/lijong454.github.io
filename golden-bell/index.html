@@ -1,0 +1,1195 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#18213D"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png" type="image/png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="골든벨 30">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Golden Bell Daily 30</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+</head><body>
+
+<style>
+/* Layout: one narrow column like a contestant's answer board on a quiz stage; brass bell = reward, navy marker = text */
+:root{
+  --bg:#E9EDF5; --board:#FFFFFF; --ink:#18213D; --muted:#5B6480; --line:#D3D9E6;
+  --brass:#A8761C; --brass-soft:#F4E7C6; --brass-ink:#5A3E08;
+  --ok:#1E8556; --ok-soft:#DDF2E7; --bad:#C2352B; --bad-soft:#FBE2DF;
+  --shadow:0 1px 0 rgba(24,33,61,.06),0 6px 18px rgba(24,33,61,.08); --stage:#18213D; --stage-fg:#FFFFFF;
+  --f-display:"Black Han Sans","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-en:"Atkinson Hyperlegible","IBM Plex Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1428; --board:#1A2142; --ink:#E9EDF8; --muted:#9AA3C0; --line:#2B3560;
+  --brass:#E2B456; --brass-soft:#3A3018; --brass-ink:#F6DE9F;
+  --ok:#4BC58C; --ok-soft:#173A2B; --bad:#F2695E; --bad-soft:#44201E;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35); --stage:#252E5A; --stage-fg:#EEF1FA; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1428; --board:#1A2142; --ink:#E9EDF8; --muted:#9AA3C0; --line:#2B3560;
+  --brass:#E2B456; --brass-soft:#3A3018; --brass-ink:#F6DE9F;
+  --ok:#4BC58C; --ok-soft:#173A2B; --bad:#F2695E; --bad-soft:#44201E;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35); --stage:#252E5A; --stage-fg:#EEF1FA; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;-webkit-text-size-adjust:100%}
+.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 48px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:30px;line-height:1.15} h2{font-size:22px} h3{font-size:18px}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+.muted{color:var(--muted)} .small{font-size:13px} .num{font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;padding-block:6px 14px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-size:19px}
+.brand svg{width:28px;height:28px}
+.top .grow{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:3px 11px;border-radius:999px;background:var(--board);border:1px solid var(--line);font-size:13px;font-weight:500;white-space:nowrap}
+.chip.brass{background:var(--brass-soft);border-color:transparent;color:var(--brass-ink)}
+.iconbtn{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px}
+.iconbtn:hover{background:var(--board)}
+
+/* surfaces */
+.card{background:var(--board);border:1px solid var(--line);border-radius:16px;padding:18px}
+.btn{min-height:48px;padding:10px 18px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn.primary{background:var(--ink);color:var(--board)}
+.btn.brass{background:var(--brass);color:#fff}
+:root[data-theme="dark"] .btn.brass{color:#1A1200}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.brass{color:#1A1200}}
+.btn.ghost{border:1.5px solid var(--line);background:var(--board)}
+.btn.danger{color:var(--bad);border:1.5px solid var(--bad);background:transparent}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* tabs */
+.tabs{display:flex;gap:4px;overflow-x:auto;padding:4px;background:var(--board);border:1px solid var(--line);border-radius:14px;margin-bottom:16px}
+.tabs button{flex:1;min-height:42px;padding:6px 10px;border-radius:10px;font-weight:500;white-space:nowrap;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--board)}
+
+/* students */
+.students{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.stu{background:var(--board);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:4px;min-height:132px}
+.stu:hover{border-color:var(--brass)}
+.stu .av{font-size:34px;line-height:1}
+.stu b{font-size:18px}
+.avatars{display:flex;flex-wrap:wrap;gap:6px}
+.avatars button{width:46px;height:46px;font-size:26px;border-radius:12px;border:1.5px solid var(--line);background:var(--board)}
+.avatars button[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-soft)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:14px;font-weight:500}
+.input{min-height:48px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--board);font-size:16px;width:100%}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.seg button{min-height:52px;border-radius:12px;border:1.5px solid var(--line);background:var(--board);font-size:14px;line-height:1.2;padding:4px}
+.seg button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--board)}
+
+/* dashboard hero: the stage */
+.stage{background:var(--stage);color:var(--stage-fg);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+.stage .who{display:flex;align-items:center;gap:12px}
+.stage .who .av{font-size:42px;line-height:1}
+.stage .title{color:var(--brass);font-size:14px;font-weight:700;letter-spacing:.04em}
+.stage .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stage .stat{background:rgba(255,255,255,.07);border-radius:12px;padding:10px}
+.stage .stat b{display:block;font-family:var(--f-display);font-size:24px;font-weight:400;line-height:1.1}
+.stage .stat span{font-size:12px;opacity:.75}
+.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.ladder div{border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;line-height:1.25;border:1px solid rgba(255,255,255,.18);opacity:.6}
+.ladder div b{display:block;font-family:var(--f-display);font-weight:400;font-size:17px}
+.ladder .done{opacity:.85}
+.ladder .now{opacity:1;background:var(--brass);color:#1A1200;border-color:var(--brass)}
+.meter{height:10px;border-radius:99px;background:rgba(255,255,255,.14);position:relative}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--brass)}
+.meter em{position:absolute;left:80%;top:-4px;bottom:-4px;width:2px;background:var(--stage-fg)}
+.ctas{display:grid;grid-template-columns:1fr;gap:10px}
+
+/* quiz */
+.qhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.progress{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:14px}
+.progress i{display:block;height:100%;background:var(--brass)}
+.board{background:var(--board);border:2px solid var(--line);border-radius:18px;padding:22px 18px;box-shadow:var(--shadow)}
+.qtext{font-family:var(--f-en);font-size:22px;line-height:1.4;font-weight:700}
+.qmeta{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.opts{display:grid;gap:10px;margin-top:16px}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;min-height:56px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--board);font-family:var(--f-en);font-size:18px}
+.opt .k{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--bg);font-weight:700;font-size:15px}
+.opt:not(:disabled):hover{border-color:var(--ink)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt:disabled{cursor:default}
+.answerboard{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.answerboard input{font-family:var(--f-en);font-size:24px;font-weight:700;min-height:60px;padding:10px 16px;border-radius:14px;border:2px solid var(--ink);background:var(--board);width:100%;letter-spacing:.02em}
+.answerboard input.right{border-color:var(--ok)} .answerboard input.wrong{border-color:var(--bad)}
+.rule{font-size:13px;color:var(--muted)}
+.fb{margin-top:16px;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.fb.ok{background:var(--ok-soft)} .fb.no{background:var(--bad-soft)}
+.fb .v{font-family:var(--f-display);font-size:20px}
+.fb.ok .v{color:var(--ok)} .fb.no .v{color:var(--bad)}
+.fb .ans{font-family:var(--f-en);font-size:18px;font-weight:700}
+.diff span{border-radius:3px} .diff .x{background:var(--bad);color:#fff}
+.combo{color:var(--brass);font-weight:700}
+.linkbtn{color:var(--muted);text-decoration:underline;font-size:13px;min-height:36px;padding:0 4px;align-self:flex-start}
+.tag{font-size:12px;padding:2px 8px;border-radius:6px;background:var(--bg);color:var(--muted);font-weight:500}
+
+/* result */
+.bigscore{font-family:var(--f-display);font-size:64px;line-height:1}
+.bell-anim svg{width:84px;height:84px;transform-origin:50% 8%;animation:ring 1.2s ease-in-out 2}
+@keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(16deg)}40%{transform:rotate(-14deg)}60%{transform:rotate(9deg)}80%{transform:rotate(-5deg)}}
+@media (prefers-reduced-motion: reduce){.bell-anim svg{animation:none}}
+.lvup{background:var(--brass-soft);color:var(--brass-ink);border-radius:16px;padding:16px;display:flex;gap:14px;align-items:center}
+.lines{display:flex;flex-direction:column}
+.lines>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lines>div:last-child{border-bottom:0}
+
+/* lists */
+.qlist{display:flex;flex-direction:column;gap:10px}
+.qitem{background:var(--board);border:1px solid var(--line);border-radius:14px;padding:14px}
+.qitem .q{font-family:var(--f-en);font-weight:700}
+.qitem .a{font-family:var(--f-en);color:var(--ok);font-weight:700}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.badge{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--board);display:flex;flex-direction:column;gap:2px}
+.badge .ic{font-size:28px;line-height:1.1}
+.badge.off{opacity:.42;filter:grayscale(1)}
+.badge b{font-size:14px}
+.badge span{font-size:12px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:72px 1fr 64px;gap:10px;align-items:center;font-size:14px}
+.bar .t{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--ink)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.levels div{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;background:var(--board)}
+.levels b{display:block;font-family:var(--f-display);font-weight:400;font-size:22px}
+.notice{border-radius:12px;padding:12px 14px;background:var(--brass-soft);color:var(--brass-ink);font-size:14px}
+.genlog{font-size:14px;min-height:22px}
+details summary{cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:500}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--board);padding:10px 16px;border-radius:12px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+@media (max-width:420px){h1{font-size:26px}.qtext{font-size:20px}.stage .stat b{font-size:20px}.levels b{font-size:18px}}
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Golden Bell question bank
+   [level, category, type('m'=4지선다,'s'=단답형), question, answer('|'로 다른 정답 허용), options(사지선다만), 한국어 해설]
+   단답형 규칙: 고유명사는 대문자로 시작, 일반 단어는 소문자, 숫자는 아라비아 숫자, a/an/the 없이 */
+var BANK = [
+/* ===== 시사 상식 cur ===== */
+[1,'cur','m','What does "UN" stand for?','United Nations',['United Nations','Universal Network','United Nature','Union of Nations'],'UN은 국제연합(유엔)이에요. 1945년에 세계 평화를 지키려고 만들어졌어요.'],
+[1,'cur','m','Which gas, made when we burn oil and coal, is a main cause of global warming?','carbon dioxide',['carbon dioxide','oxygen','helium','nitrogen'],'석유·석탄을 태우면 이산화탄소(carbon dioxide)가 나와서 지구를 덥게 해요.'],
+[1,'cur','m','Which K-pop group sang "Dynamite" in 2020?','BTS',['BTS','BLACKPINK','TWICE','EXO'],'BTS의 "Dynamite"는 2020년 미국 빌보드 핫100 1위에 올랐어요.'],
+[1,'cur','s','What do we call collecting used paper, cans and bottles so they can be made into new things?','recycling','재활용은 recycling이에요. recycle(재활용하다)의 -ing 형태예요.'],
+[1,'cur','s','What is the name of the money used in South Korea?','won','한국 돈의 단위는 원(won)이에요. 일반 단어라 소문자로 써요.'],
+[1,'cur','s','What is the name of the money used in the United States?','dollar','미국 돈은 달러(dollar)예요.'],
+[1,'cur','s','Which big white Arctic animal is in danger because sea ice is melting?','polar bear','북극곰은 polar bear예요. 바다 얼음이 녹아서 사냥이 어려워지고 있어요.'],
+[1,'cur','s','What do we call energy made from sunlight? (two words)','solar energy|solar power','태양 에너지는 solar energy(또는 solar power)예요.'],
+[1,'cur','s','What does "AI" stand for? (two words)','artificial intelligence','AI는 인공지능, artificial intelligence의 줄임말이에요.'],
+[1,'cur','s','What is the name of the big sports event held every four years, in summer and in winter?','Olympics|Olympic Games','올림픽(Olympics)은 하계·동계로 4년마다 열려요. 고유명사라 대문자로 시작해요.'],
+
+[2,'cur','m','The 2026 FIFA World Cup was hosted by the USA, Canada and which other country?','Mexico',['Mexico','Brazil','Japan','England'],'2026 월드컵은 미국·캐나다·멕시코 세 나라가 함께 열었어요. 처음으로 48개 팀이 참가했어요.'],
+[2,'cur','m','The SDGs (Sustainable Development Goals) were made by which organization?','United Nations',['United Nations','FIFA','NASA','Red Cross'],'지속가능발전목표(SDGs)는 2015년 유엔이 정했어요.'],
+[2,'cur','m','What does "carbon neutral" mean?','putting out no more carbon than you take away',['putting out no more carbon than you take away','using only coal for energy','planting no trees at all','making more plastic every year'],'탄소 중립은 내보내는 탄소만큼 다시 없애서 합계를 0으로 만드는 거예요.'],
+[2,'cur','s','Which country won the 2026 FIFA World Cup?','Spain','2026년 7월 19일 결승에서 스페인이 아르헨티나를 1대 0으로 이겼어요.'],
+[2,'cur','s','In which city were the 2024 Summer Olympics held?','Paris','2024년 하계 올림픽은 프랑스 파리에서 열렸어요.'],
+[2,'cur','s','Which American city will host the 2028 Summer Olympics? (two words)','Los Angeles','2028년 하계 올림픽은 미국 로스앤젤레스(Los Angeles)에서 열려요.'],
+[2,'cur','s','The 2015 world agreement to fight climate change is named after a city. What is it called? (two words)','Paris Agreement|Paris Climate Agreement','파리 협정(Paris Agreement)은 2015년에 맺은 기후 변화 협약이에요.'],
+[2,'cur','s','How many goals are there in the UN\'s SDGs? (number)','17','유엔 지속가능발전목표는 모두 17개예요.'],
+[2,'cur','s','What do we call a long time with little or no rain?','drought','가뭄은 drought예요. 기후 변화로 더 자주 생기고 있어요.'],
+[2,'cur','s','In which country were the 2026 Asian Games held?','Japan','2026년 아시안게임은 일본 아이치·나고야에서 열렸어요.'],
+
+[3,'cur','m','In 2026, the Nobel Prize in Literature went to Anne Carson. Which country is she from?','Canada',['Canada','Australia','Ireland','Sweden'],'2026년 노벨 문학상은 캐나다의 시인 앤 카슨이 받았어요.'],
+[3,'cur','m','The 2026 Winter Olympics were held in Milan and Cortina. Which country is that?','Italy',['Italy','France','Switzerland','Austria'],'2026 동계 올림픽은 이탈리아 밀라노·코르티나에서 열렸어요.'],
+[3,'cur','m','What does "ESG" stand for in business?','Environmental, Social and Governance',['Environmental, Social and Governance','Energy, Science and Growth','Economy, Safety and Government','Education, Sports and Games'],'ESG는 환경(E)·사회(S)·지배구조(G)예요. 기업이 책임 있게 경영하는지 보는 기준이에요.'],
+[3,'cur','s','Navi Pillay won the 2026 Nobel Peace Prize. In which country was she born? (two words)','South Africa','나비 필레이는 남아프리카공화국 더반에서 태어난 인권 법률가예요.'],
+[3,'cur','s','Which country lost to Spain in the 2026 World Cup final?','Argentina','2026 월드컵 결승에서 아르헨티나가 스페인에 0대 1로 졌어요.'],
+[3,'cur','s','What is the three-letter short name of the UN agency for world health?','WHO','세계보건기구는 World Health Organization, 줄여서 WHO예요.'],
+[3,'cur','s','In "G20", what does the "G" stand for?','Group','G20은 Group of Twenty, 주요 20개국 모임이에요.'],
+[3,'cur','s','Microplastics are tiny pieces of what material?','plastic','미세플라스틱은 아주 작은 플라스틱(plastic) 조각이에요.'],
+[3,'cur','s','What do we call money that exists only online, like Bitcoin?','cryptocurrency','비트코인 같은 디지털 화폐를 암호화폐, cryptocurrency라고 해요.'],
+[3,'cur','s','What do we call the rise in Earth\'s average temperature? (two words)','global warming','지구 온난화는 global warming이에요.'],
+
+[4,'cur','m','Which country won the most gold medals at the 2026 Asian Games?','China',['China','Japan','South Korea','India'],'2026 아이치·나고야 아시안게임 메달 1위는 중국이었어요.'],
+[4,'cur','m','Who chooses the winner of the Nobel Peace Prize?','Norwegian Nobel Committee',['Norwegian Nobel Committee','Swedish Academy','UN Security Council','Royal Swedish Academy of Sciences'],'다른 노벨상은 스웨덴에서 뽑지만 평화상만 노르웨이 노벨위원회가 뽑아요.'],
+[4,'cur','m','The Paris Agreement aims to keep global warming well below how many degrees Celsius?','2°C',['2°C','5°C','10°C','0.5°C'],'파리 협정은 산업화 이전보다 2°C보다 훨씬 낮게, 가능하면 1.5°C로 막자는 약속이에요.'],
+[4,'cur','s','In which city is the Nobel Peace Prize given out?','Oslo','노벨 평화상은 노르웨이 수도 오슬로(Oslo)에서 시상해요.'],
+[4,'cur','s','Who scored the winning goal in the 2026 World Cup final? (full name)','Ferran Torres','스페인의 페란 토레스가 연장 106분에 결승골을 넣었어요.'],
+[4,'cur','s','In which city is the headquarters of the United Nations? (two words)','New York|New York City','유엔 본부는 미국 뉴욕(New York)에 있어요.'],
+[4,'cur','s','Which Canadian poet won the 2026 Nobel Prize in Literature? (full name)','Anne Carson','앤 카슨(Anne Carson)은 캐나다 시인이자 고전학 교수예요.'],
+[4,'cur','s','What is the name of the UN agency for children? (6 capital letters)','UNICEF','유엔아동기금은 UNICEF(유니세프)예요.'],
+[4,'cur','s','Many countries plan to reach "net ___" carbon emissions by 2050. Fill in the word.','zero','탄소 순배출 0을 net zero(넷제로)라고 해요.'],
+[4,'cur','s','Which country will host the 2030 FIFA World Cup together with Portugal and Morocco?','Spain','2030 월드컵은 스페인·포르투갈·모로코가 함께 열어요.'],
+
+/* ===== 문학 lit ===== */
+[1,'lit','m','Who wrote the "Harry Potter" books?','J.K. Rowling',['J.K. Rowling','Roald Dahl','C.S. Lewis','Mark Twain'],'해리 포터는 영국 작가 J.K. 롤링이 썼어요.'],
+[1,'lit','m','In "Cinderella", what does Cinderella leave behind at the ball?','a glass slipper',['a glass slipper','a gold ring','a red hat','a blue dress'],'신데렐라는 무도회에 유리 구두 한 짝을 남기고 가요.'],
+[1,'lit','m','In the fable, who wins the race between the tortoise and the hare?','the tortoise',['the tortoise','the hare','both of them','nobody'],'토끼와 거북이 이야기에서는 꾸준한 거북이(tortoise)가 이겨요.'],
+[1,'lit','s','In "Pinocchio", what part of his body grows longer when Pinocchio lies?','nose','피노키오는 거짓말을 하면 코(nose)가 길어져요.'],
+[1,'lit','s','Who is the boy who never grows up and lives in Neverland? (two words)','Peter Pan','네버랜드에 사는 소년은 피터 팬(Peter Pan)이에요.'],
+[1,'lit','s','In "Snow White", how many dwarfs are there? (number)','7','백설공주에는 일곱 난쟁이가 나와요.'],
+[1,'lit','s','What fruit does Snow White eat that makes her fall asleep?','apple','백설공주는 독이 든 사과(apple)를 먹어요.'],
+[1,'lit','s','In "The Three Little Pigs", what is the third pig\'s house made of?','brick|bricks','셋째 돼지는 벽돌(brick)로 집을 지어서 늑대를 막아요.'],
+[1,'lit','s','What do we call a short story with talking animals that teaches a lesson?','fable','교훈을 주는 동물 이야기를 우화, fable이라고 해요.'],
+[1,'lit','s','Which boy climbs a beanstalk and finds a giant?','Jack','"잭과 콩나무"의 주인공은 잭(Jack)이에요.'],
+
+[2,'lit','m','Who wrote "The Little Prince"?','Antoine de Saint-Exupéry',['Antoine de Saint-Exupéry','Hans Christian Andersen','Lewis Carroll','Jules Verne'],'어린 왕자는 프랑스 비행사이자 작가 생텍쥐페리가 썼어요.'],
+[2,'lit','m','Who wrote "Romeo and Juliet"?','William Shakespeare',['William Shakespeare','Charles Dickens','Mark Twain','Jane Austen'],'로미오와 줄리엣은 셰익스피어의 비극이에요.'],
+[2,'lit','m','In "Alice\'s Adventures in Wonderland", what does Alice follow down a hole?','a white rabbit',['a white rabbit','a black cat','a red fox','a brown dog'],'앨리스는 시계를 든 흰 토끼를 따라 굴에 빠져요.'],
+[2,'lit','s','Which Danish writer wrote "The Little Mermaid" and "The Ugly Duckling"? (full name)','Hans Christian Andersen','인어공주와 미운 오리 새끼는 덴마크 작가 안데르센이 썼어요.'],
+[2,'lit','s','In "Charlotte\'s Web", what kind of animal is Charlotte?','spider','샬롯은 거미(spider)예요. 거미줄에 글자를 써서 돼지를 구해요.'],
+[2,'lit','s','In "Charlotte\'s Web", what is the name of the pig?','Wilbur','"샬롯의 거미줄"의 돼지 이름은 윌버(Wilbur)예요.'],
+[2,'lit','s','Who wrote "The Adventures of Tom Sawyer"? (pen name, two words)','Mark Twain','톰 소여의 모험은 마크 트웨인이 썼어요. 본명은 새뮤얼 클레멘스예요.'],
+[2,'lit','s','What is a Japanese poem with three lines of 5, 7 and 5 syllables called?','haiku','5-7-5 음절의 일본 짧은 시를 하이쿠(haiku)라고 해요.'],
+[2,'lit','s','In "The Wizard of Oz", what is the name of Dorothy\'s dog?','Toto','도로시의 강아지 이름은 토토(Toto)예요.'],
+[2,'lit','s','What is the first name of the boy wizard who goes to Hogwarts?','Harry','호그와트에 다니는 소년 마법사는 해리(Harry) 포터예요.'],
+
+[3,'lit','m','Who wrote "A Christmas Carol"?','Charles Dickens',['Charles Dickens','Oscar Wilde','Robert Louis Stevenson','Lewis Carroll'],'스크루지가 나오는 "크리스마스 캐럴"은 찰스 디킨스가 썼어요.'],
+[3,'lit','m','In "Gulliver\'s Travels", in which land are the people only about 15 cm tall?','Lilliput',['Lilliput','Brobdingnag','Neverland','Narnia'],'소인국은 릴리퍼트(Lilliput), 거인국은 브롭딩낵이에요.'],
+[3,'lit','m','Which Korean classic tells of a daughter who jumps into the sea so her blind father can see?','The Story of Sim Cheong',['The Story of Sim Cheong','The Story of Chunhyang','The Story of Hong Gildong','The Story of Heungbu'],'심청전은 효녀 심청이 아버지의 눈을 뜨게 하려고 인당수에 몸을 던지는 이야기예요.'],
+[3,'lit','s','Who wrote "Treasure Island"? (full name)','Robert Louis Stevenson','보물섬은 스코틀랜드 작가 로버트 루이스 스티븐슨이 썼어요.'],
+[3,'lit','s','In "Treasure Island", what is the name of the one-legged pirate? (three words)','Long John Silver','외다리 해적은 롱 존 실버(Long John Silver)예요.'],
+[3,'lit','s','Astrid Lindgren, who wrote "Pippi Longstocking", was from which country?','Sweden','말괄량이 삐삐를 쓴 아스트리드 린드그렌은 스웨덴 작가예요.'],
+[3,'lit','s','In "The Chronicles of Narnia", what is the name of the great lion?','Aslan','나니아 연대기의 사자 이름은 아슬란(Aslan)이에요.'],
+[3,'lit','s','Who wrote "Matilda" and "Charlie and the Chocolate Factory"? (full name)','Roald Dahl','마틸다와 찰리와 초콜릿 공장은 로알드 달이 썼어요.'],
+[3,'lit','s','Which detective was created by Arthur Conan Doyle? (full name)','Sherlock Holmes','코난 도일이 만든 탐정은 셜록 홈스(Sherlock Holmes)예요.'],
+[3,'lit','s','What is the last name of Sherlock Holmes\'s friend, a doctor who helps him?','Watson','홈스의 친구이자 의사는 왓슨(Watson) 박사예요.'],
+
+[4,'lit','m','Which writer created "Don Quixote"?','Miguel de Cervantes',['Miguel de Cervantes','Victor Hugo','Leo Tolstoy','Dante Alighieri'],'돈키호테는 스페인 작가 세르반테스가 썼어요.'],
+[4,'lit','m','Which Korean writer won the 2024 Nobel Prize in Literature?','Han Kang',['Han Kang','Ko Un','Kim Young-ha','Hwang Sok-yong'],'한강 작가는 2024년 한국인 최초로 노벨 문학상을 받았어요.'],
+[4,'lit','m','Who wrote "Les Misérables"?','Victor Hugo',['Victor Hugo','Alexandre Dumas','Jules Verne','Molière'],'레 미제라블은 프랑스 작가 빅토르 위고가 썼어요.'],
+[4,'lit','s','In "Les Misérables", what is the name of the man who went to prison for stealing bread? (two words)','Jean Valjean','빵을 훔쳐 감옥에 간 주인공은 장 발장(Jean Valjean)이에요.'],
+[4,'lit','s','Which ancient Greek poet is said to have written "The Iliad" and "The Odyssey"?','Homer','일리아스와 오디세이아는 호메로스(Homer)가 지었다고 전해요.'],
+[4,'lit','s','In "The Odyssey", which hero travels home for ten years after the Trojan War?','Odysseus','오디세이아의 주인공은 오디세우스(Odysseus)예요.'],
+[4,'lit','s','Who wrote "Twenty Thousand Leagues Under the Sea"? (full name)','Jules Verne','해저 2만 리는 프랑스 작가 쥘 베른이 썼어요.'],
+[4,'lit','s','What is the name of the captain of the submarine Nautilus? (name only, without "Captain")','Nemo','노틸러스호의 선장은 네모(Nemo) 선장이에요.'],
+[4,'lit','s','In which Shakespeare play does a Danish prince say "To be, or not to be"?','Hamlet','덴마크 왕자가 나오는 비극은 햄릿(Hamlet)이에요.'],
+[4,'lit','s','What do we call a very long poem about a great hero?','epic','영웅의 이야기를 담은 긴 시를 서사시, epic이라고 해요.'],
+
+/* ===== 역사 his ===== */
+[1,'his','m','Who created Hangeul?','King Sejong',['King Sejong','Admiral Yi Sun-sin','King Gwanggaeto','Queen Seondeok'],'한글은 조선의 세종대왕이 만들었어요.'],
+[1,'his','m','What are the huge stone tombs built in ancient Egypt called?','pyramids',['pyramids','castles','temples','towers'],'고대 이집트의 왕은 피라미드(pyramid)에 묻혔어요.'],
+[1,'his','m','Who was the first president of the United States?','George Washington',['George Washington','Abraham Lincoln','Thomas Jefferson','John Adams'],'미국의 첫 대통령은 조지 워싱턴이에요.'],
+[1,'his','s','Which Korean admiral used turtle ships to fight Japan? (full name)','Yi Sun-sin|Yi Sun-shin','거북선으로 일본군을 물리친 장군은 이순신(Yi Sun-sin)이에요.'],
+[1,'his','s','What were the Korean warships with a roof covered in iron spikes called? (two words)','turtle ship|turtle ships','거북선은 영어로 turtle ship이에요.'],
+[1,'his','s','The long wall built in China to keep out enemies is the "Great ___". Fill in the word.','Wall','만리장성은 Great Wall이에요. 이름의 일부라 대문자로 써요.'],
+[1,'his','s','Korea became free from Japanese rule on August 15 of which year? (number)','1945','1945년 8월 15일이 광복절이에요.'],
+[1,'his','s','What do we call the time before people wrote down history?','prehistory','글로 기록하기 전의 시대를 선사 시대, prehistory라고 해요.'],
+[1,'his','s','Which ancient people built the Colosseum?','Romans','콜로세움은 고대 로마 사람들(Romans)이 지었어요.'],
+[1,'his','s','Which ship sank in 1912 after hitting an iceberg?','Titanic','1912년 빙산에 부딪혀 가라앉은 배는 타이태닉(Titanic)호예요.'],
+
+[2,'his','m','Which Korean kingdom was founded by Jumong?','Goguryeo',['Goguryeo','Silla','Baekje','Gaya'],'주몽은 고구려를 세웠어요.'],
+[2,'his','m','In which year did World War II end?','1945',['1945','1918','1939','1950'],'제2차 세계대전은 1945년에 끝났어요.'],
+[2,'his','m','Who was the first person to walk on the Moon?','Neil Armstrong',['Neil Armstrong','Yuri Gagarin','Buzz Aldrin','John Glenn'],'1969년 닐 암스트롱이 처음으로 달에 발을 디뎠어요.'],
+[2,'his','s','Which kingdom united the Three Kingdoms of Korea?','Silla','신라가 삼국을 통일했어요(676년).'],
+[2,'his','s','In which year did the Korean War begin? (number)','1950','6·25 전쟁은 1950년에 시작됐어요.'],
+[2,'his','s','Which U.S. president ended slavery and gave the Gettysburg Address? (full name)','Abraham Lincoln','노예 해방을 이끈 대통령은 에이브러햄 링컨이에요.'],
+[2,'his','s','Which explorer sailed from Spain to the Americas in 1492? (full name)','Christopher Columbus','1492년 아메리카에 도착한 탐험가는 크리스토퍼 콜럼버스예요.'],
+[2,'his','s','Which French leader became emperor in 1804?','Napoleon','1804년 황제가 된 프랑스 지도자는 나폴레옹(Napoleon)이에요.'],
+[2,'his','s','Which ancient Greek place held the first Olympic Games?','Olympia','고대 올림픽은 그리스 올림피아(Olympia)에서 열렸어요.'],
+[2,'his','s','What was the old trade route between China and Europe called? (two words)','Silk Road','비단길, 실크로드(Silk Road)예요.'],
+
+[3,'his','m','Which document, signed in England in 1215, limited the king\'s power?','Magna Carta',['Magna Carta','Bill of Rights','Declaration of Independence','Treaty of Versailles'],'1215년 영국의 마그나 카르타(대헌장)는 왕의 권력을 제한했어요.'],
+[3,'his','m','Who was the first queen to rule Silla?','Queen Seondeok',['Queen Seondeok','Queen Jindeok','Queen Jinseong','Queen Min'],'선덕여왕은 신라 최초의 여왕이에요. 첨성대를 세웠어요.'],
+[3,'his','m','In which year did the United States declare independence?','1776',['1776','1789','1492','1812'],'미국은 1776년 7월 4일에 독립을 선언했어요.'],
+[3,'his','s','Which Joseon scientist made a self-striking water clock for King Sejong? (full name)','Jang Yeong-sil|Jang Young-sil','장영실은 자격루와 측우기 등을 만든 조선의 과학자예요.'],
+[3,'his','s','Which wall divided a German city from 1961 to 1989? (two words)','Berlin Wall','베를린 장벽(Berlin Wall)은 1989년에 무너졌어요.'],
+[3,'his','s','Genghis Khan founded the "___ Empire". Fill in the word.','Mongol','칭기즈 칸은 몽골 제국(Mongol Empire)을 세웠어요.'],
+[3,'his','s','Which French queen lived at Versailles and died in the French Revolution? (two words)','Marie Antoinette','마리 앙투아네트는 프랑스 혁명 때 처형됐어요.'],
+[3,'his','s','Which is the only one of the Seven Wonders of the Ancient World still standing? (four words)','Great Pyramid of Giza','고대 7대 불가사의 중 지금 남아 있는 것은 기자의 대피라미드뿐이에요.'],
+[3,'his','s','In which year did the French Revolution begin? (number)','1789','프랑스 혁명은 1789년에 시작됐어요.'],
+[3,'his','s','What is the name of the oldest existing book printed with metal type, made in Goryeo in 1377?','Jikji','직지(Jikji)는 현재 남아 있는 가장 오래된 금속활자 인쇄본이에요.'],
+
+[4,'his','m','In which country did the Industrial Revolution begin?','Great Britain',['Great Britain','France','Germany','United States'],'산업 혁명은 18세기 영국에서 시작됐어요.'],
+[4,'his','m','Which Indian leader led peaceful protests against British rule?','Mahatma Gandhi',['Mahatma Gandhi','Jawaharlal Nehru','Nelson Mandela','Martin Luther King Jr.'],'간디는 비폭력 저항으로 인도 독립 운동을 이끌었어요.'],
+[4,'his','m','In which year was the Joseon Dynasty founded?','1392',['1392','918','1446','1592'],'이성계가 1392년에 조선을 세웠어요.'],
+[4,'his','s','In which year did the Imjin War (Japan\'s invasion of Korea) begin? (number)','1592','임진왜란은 1592년에 일어났어요.'],
+[4,'his','s','Who was the first emperor of a united China? (three words)','Qin Shi Huang|Qin Shihuang','진시황(Qin Shi Huang)은 중국을 처음 통일한 황제예요.'],
+[4,'his','s','The 1962 missile crisis between the USA and the Soviet Union was about which island country?','Cuba','1962년 쿠바 미사일 위기는 쿠바(Cuba)에 놓인 소련 미사일 때문에 일어났어요.'],
+[4,'his','s','Which Macedonian king built a huge empire by the age of 30? (three words)','Alexander the Great','알렉산드로스 대왕(Alexander the Great)이에요.'],
+[4,'his','s','In which year was Hunminjeongeum announced to the people? (number)','1446','훈민정음은 1446년에 반포됐어요.'],
+[4,'his','s','Who became South Africa\'s first Black president in 1994? (full name)','Nelson Mandela','넬슨 만델라는 27년 감옥 생활 뒤 대통령이 됐어요.'],
+[4,'his','s','Which ancient people in Peru built Machu Picchu?','Inca|Incas','마추픽추는 잉카(Inca) 사람들이 만들었어요.'],
+
+/* ===== 과학 sci ===== */
+[1,'sci','m','Which planet is closest to the Sun?','Mercury',['Mercury','Venus','Earth','Mars'],'태양에 가장 가까운 행성은 수성(Mercury)이에요.'],
+[1,'sci','m','What do plants need from the Sun to make food?','light',['light','sand','salt','plastic'],'식물은 햇빛(light)으로 양분을 만들어요.'],
+[1,'sci','m','At what temperature does water freeze?','0°C',['0°C','10°C','50°C','100°C'],'물은 0°C에서 얼어요.'],
+[1,'sci','s','What is the largest planet in our solar system?','Jupiter','태양계에서 가장 큰 행성은 목성(Jupiter)이에요.'],
+[1,'sci','s','What do bees make from flower nectar?','honey','벌은 꽃꿀로 꿀(honey)을 만들어요.'],
+[1,'sci','s','Which gas do we breathe in to stay alive?','oxygen','우리는 산소(oxygen)를 마셔요.'],
+[1,'sci','s','How many legs does an insect have? (number)','6','곤충은 다리가 6개예요. 거미는 8개라서 곤충이 아니에요.'],
+[1,'sci','s','What is a baby frog called?','tadpole','올챙이는 tadpole이에요.'],
+[1,'sci','s','Which organ pumps blood around the body?','heart','심장(heart)이 피를 온몸으로 보내요.'],
+[1,'sci','s','What is the hardest natural material, often used in rings?','diamond','가장 단단한 천연 물질은 다이아몬드(diamond)예요.'],
+
+[2,'sci','m','What is H₂O?','water',['water','salt','sugar','air'],'H₂O는 수소 2개와 산소 1개로 된 물이에요.'],
+[2,'sci','m','Which part of a cell controls the cell and holds DNA?','nucleus',['nucleus','cell wall','membrane','vacuole'],'세포의 핵(nucleus)이 DNA를 담고 세포를 조절해요.'],
+[2,'sci','m','Through which of these does sound travel fastest?','steel',['steel','water','air','outer space'],'소리는 고체에서 가장 빠르고, 진공인 우주에서는 전달되지 않아요.'],
+[2,'sci','s','What force pulls things toward the Earth?','gravity','물체를 땅으로 끌어당기는 힘은 중력(gravity)이에요.'],
+[2,'sci','s','What is the process by which plants make food using sunlight?','photosynthesis','광합성은 photosynthesis예요.'],
+[2,'sci','s','Which planet is known as the Red Planet?','Mars','붉은 행성은 화성(Mars)이에요.'],
+[2,'sci','s','What is the chemical symbol for gold?','Au','금의 원소 기호는 Au예요. 라틴어 aurum에서 왔어요.'],
+[2,'sci','s','What do we call animals that eat only plants?','herbivores|herbivore','초식 동물은 herbivore예요. 육식 동물은 carnivore예요.'],
+[2,'sci','s','At sea level, water boils at how many degrees Celsius? (number)','100','물은 1기압에서 100°C에 끓어요.'],
+[2,'sci','s','Which blood cells carry oxygen? (three words)','red blood cells','산소를 나르는 것은 적혈구, red blood cells예요.'],
+
+[3,'sci','m','What is the chemical symbol for sodium?','Na',['Na','So','S','Sd'],'나트륨(sodium)의 기호는 라틴어 natrium에서 온 Na예요.'],
+[3,'sci','m','Which scientist wrote the three laws of motion?','Isaac Newton',['Isaac Newton','Albert Einstein','Galileo Galilei','Charles Darwin'],'운동의 3법칙은 아이작 뉴턴이 정리했어요.'],
+[3,'sci','m','What is the pH of pure water?','7',['7','1','14','10'],'순수한 물은 중성이라 pH 7이에요.'],
+[3,'sci','s','What is the unit of electric current?','ampere|amp','전류의 단위는 암페어(ampere, A)예요.'],
+[3,'sci','s','What is the most common gas in Earth\'s air?','nitrogen','공기의 약 78%는 질소(nitrogen)예요.'],
+[3,'sci','s','What do we call it when a liquid slowly turns into a gas at its surface?','evaporation','증발은 evaporation이에요.'],
+[3,'sci','s','Which tube carries food from the mouth to the stomach?','esophagus|oesophagus','식도는 esophagus예요.'],
+[3,'sci','s','What kind of rock forms when lava or magma cools?','igneous|igneous rock','화성암은 igneous rock이에요.'],
+[3,'sci','s','What is the name of our galaxy? (two words)','Milky Way','우리 은하는 Milky Way(우리은하, 은하수)예요.'],
+[3,'sci','s','Who wrote "On the Origin of Species"? (full name)','Charles Darwin','종의 기원은 찰스 다윈이 썼어요.'],
+
+[4,'sci','m','About how fast does light travel?','300,000 km per second',['300,000 km per second','300 km per second','3,000 km per second','30,000,000 km per second'],'빛은 1초에 약 30만 km를 가요.'],
+[4,'sci','m','Which element has atomic number 1?','hydrogen',['hydrogen','helium','oxygen','carbon'],'원자 번호 1번은 수소(hydrogen)예요.'],
+[4,'sci','m','What is the shape of DNA called?','double helix',['double helix','single circle','triple square','flat sheet'],'DNA는 이중 나선(double helix) 모양이에요.'],
+[4,'sci','s','Which particle in an atom has a negative charge?','electron','음전하를 띤 입자는 전자(electron)예요.'],
+[4,'sci','s','Who developed the theory of relativity? (full name)','Albert Einstein','상대성 이론은 알베르트 아인슈타인이 만들었어요.'],
+[4,'sci','s','Which part of the cell is called its "powerhouse" because it makes energy?','mitochondria|mitochondrion','세포의 발전소는 미토콘드리아(mitochondria)예요.'],
+[4,'sci','s','What is the chemical symbol for iron?','Fe','철의 원소 기호는 라틴어 ferrum에서 온 Fe예요.'],
+[4,'sci','s','Which planet is most famous for its rings?','Saturn','고리가 유명한 행성은 토성(Saturn)이에요.'],
+[4,'sci','s','What unit is used to measure how loud a sound is?','decibel|decibels','소리의 크기는 데시벨(decibel, dB)로 재요.'],
+[4,'sci','s','What do we call animals that have a backbone?','vertebrates|vertebrate','척추동물은 vertebrate예요.'],
+
+/* ===== 수학 mat ===== */
+[1,'mat','m','How many sides does a hexagon have?','6',['6','5','7','8'],'육각형(hexagon)은 변이 6개예요.'],
+[1,'mat','m','What is 7 × 8?','56',['56','54','63','48'],'7 × 8 = 56이에요.'],
+[1,'mat','m','What is half of 50?','25',['25','20','30','15'],'50의 절반은 25예요.'],
+[1,'mat','s','What is 15 + 27? (number)','42','15 + 27 = 42예요.'],
+[1,'mat','s','How many minutes are there in one hour? (number)','60','1시간은 60분이에요.'],
+[1,'mat','s','What do we call a shape with three sides?','triangle','변이 3개인 도형은 삼각형(triangle)이에요.'],
+[1,'mat','s','How many centimeters are in one meter? (number)','100','1m는 100cm예요.'],
+[1,'mat','s','What is 100 − 37? (number)','63','100 − 37 = 63이에요.'],
+[1,'mat','s','How many days are there in a leap year? (number)','366','윤년(leap year)은 2월이 29일이라 366일이에요.'],
+[1,'mat','s','What do we call the answer to a multiplication problem?','product','곱셈의 답은 곱, product예요. 덧셈의 답은 sum이에요.'],
+
+[2,'mat','m','What is 25% of 80?','20',['20','25','16','40'],'80 × 0.25 = 20이에요.'],
+[2,'mat','m','What do the three angles of a triangle add up to?','180°',['180°','90°','360°','270°'],'삼각형의 세 각의 합은 180°예요.'],
+[2,'mat','m','Which of these is a prime number?','13',['13','15','21','27'],'13은 1과 자기 자신으로만 나누어져요. 15=3×5, 21=3×7, 27=3×9예요.'],
+[2,'mat','s','What is 12 × 12? (number)','144','12의 제곱은 144예요.'],
+[2,'mat','s','What do we call a number that can only be divided by 1 and itself? (two words)','prime number','소수는 prime number예요.'],
+[2,'mat','s','A square has sides of 5 cm. What is its perimeter in cm? (number)','20','둘레는 5 × 4 = 20cm예요.'],
+[2,'mat','s','Write 3/4 as a decimal.','0.75','3 ÷ 4 = 0.75예요.'],
+[2,'mat','s','What do we call an angle of exactly 90 degrees? (two words)','right angle','직각은 right angle이에요.'],
+[2,'mat','s','What is 10 in Roman numerals?','X','로마 숫자 10은 X예요.'],
+[2,'mat','s','How many faces does a cube have? (number)','6','정육면체는 면이 6개예요.'],
+
+[3,'mat','m','What is π (pi) to two decimal places?','3.14',['3.14','3.41','3.12','3.16'],'원주율 π는 약 3.14예요.'],
+[3,'mat','m','If 2x + 5 = 17, what is x?','6',['6','11','5','7'],'2x = 12이니까 x = 6이에요.'],
+[3,'mat','m','What is the area of a circle with radius 3?','9π',['9π','6π','3π','12π'],'원의 넓이 = π × r² = π × 9 = 9π예요.'],
+[3,'mat','s','What is the square root of 81? (number)','9','9 × 9 = 81이라서 81의 제곱근은 9예요.'],
+[3,'mat','s','What is the longest side of a right triangle called?','hypotenuse','직각삼각형의 빗변은 hypotenuse예요.'],
+[3,'mat','s','How many degrees are in a full circle? (number)','360','원 한 바퀴는 360°예요.'],
+[3,'mat','s','What is −8 + 3? (number)','-5|−5','−8 + 3 = −5예요. 마이너스 기호를 꼭 써요.'],
+[3,'mat','s','What do we call a shape with 8 sides?','octagon','팔각형은 octagon이에요. 문어(octopus)도 다리가 8개예요.'],
+[3,'mat','s','What is 2 to the power of 5? (number)','32','2⁵ = 2×2×2×2×2 = 32예요.'],
+[3,'mat','s','What is the mean (average) of 4, 8 and 12? (number)','8','(4 + 8 + 12) ÷ 3 = 8이에요.'],
+
+[4,'mat','m','Which mathematician is famous for the rule a² + b² = c²?','Pythagoras',['Pythagoras','Euclid','Archimedes','Isaac Newton'],'피타고라스 정리예요.'],
+[4,'mat','m','What comes next: 1, 1, 2, 3, 5, 8, ...?','13',['13','11','12','16'],'앞의 두 수를 더해요. 5 + 8 = 13이에요.'],
+[4,'mat','m','How many edges does a cube have?','12',['12','8','6','24'],'정육면체는 모서리 12개, 꼭짓점 8개, 면 6개예요.'],
+[4,'mat','s','The sequence 1, 1, 2, 3, 5, 8 ... is named after which mathematician?','Fibonacci','피보나치(Fibonacci) 수열이에요.'],
+[4,'mat','s','What is the least common multiple of 4 and 6? (number)','12','4와 6의 최소공배수는 12예요.'],
+[4,'mat','s','What is the greatest common factor of 18 and 24? (number)','6','18과 24의 최대공약수는 6이에요.'],
+[4,'mat','s','What is 50 in Roman numerals?','L','로마 숫자 50은 L이에요.'],
+[4,'mat','s','A right triangle has two short sides of 6 and 8. How long is the longest side? (number)','10','6² + 8² = 36 + 64 = 100 = 10²이에요.'],
+[4,'mat','s','How many diagonals does a pentagon have? (number)','5','오각형의 대각선은 5 × (5 − 3) ÷ 2 = 5개예요.'],
+[4,'mat','s','What is the sum of the inside angles of a hexagon, in degrees? (number)','720','(6 − 2) × 180 = 720°예요.'],
+
+/* ===== 예술 art ===== */
+[1,'art','m','Who painted the "Mona Lisa"?','Leonardo da Vinci',['Leonardo da Vinci','Pablo Picasso','Vincent van Gogh','Claude Monet'],'모나리자는 레오나르도 다빈치의 그림이에요.'],
+[1,'art','m','How many keys does a standard piano have?','88',['88','76','66','100'],'보통 피아노는 건반이 88개예요(흰 건반 52, 검은 건반 36).'],
+[1,'art','m','What color do you get when you mix blue and yellow?','green',['green','purple','orange','brown'],'파랑 + 노랑 = 초록이에요.'],
+[1,'art','s','What color do you get when you mix red and white?','pink','빨강 + 흰색 = 분홍(pink)이에요.'],
+[1,'art','s','In painting, what are red, blue and yellow called? (two words)','primary colors|primary colours','빨강·파랑·노랑을 삼원색, primary colors라고 해요.'],
+[1,'art','s','What do we call the person who leads an orchestra?','conductor','오케스트라를 이끄는 사람은 지휘자, conductor예요.'],
+[1,'art','s','How many strings does a violin have? (number)','4','바이올린은 줄이 4개예요.'],
+[1,'art','s','Which instrument has black and white keys?','piano','검은 건반과 흰 건반이 있는 악기는 피아노예요.'],
+[1,'art','s','What do we call a painting of a person\'s face?','portrait','사람의 얼굴을 그린 그림을 초상화, portrait라고 해요.'],
+[1,'art','s','Who painted "The Starry Night"? (full name)','Vincent van Gogh|Vincent Van Gogh','별이 빛나는 밤은 빈센트 반 고흐의 그림이에요.'],
+
+[2,'art','m','Who wrote the piano piece "Für Elise"?','Ludwig van Beethoven',['Ludwig van Beethoven','Wolfgang Amadeus Mozart','Johann Sebastian Bach','Frédéric Chopin'],'엘리제를 위하여는 베토벤의 곡이에요.'],
+[2,'art','m','Which Spanish artist helped start Cubism?','Pablo Picasso',['Pablo Picasso','Salvador Dalí','Claude Monet','Rembrandt'],'피카소는 브라크와 함께 입체파(큐비즘)를 시작했어요.'],
+[2,'art','m','How many lines are there in a music staff?','5',['5','4','6','7'],'오선지는 줄이 5개예요.'],
+[2,'art','s','Which Austrian composer wrote "The Magic Flute" and began composing as a small child? (last name)','Mozart','마술피리는 모차르트(Mozart)의 오페라예요.'],
+[2,'art','s','What is the Korean art of musical storytelling by one singer and a drummer called?','pansori','판소리(pansori)는 소리꾼 한 명과 고수 한 명이 공연해요.'],
+[2,'art','s','What do we call a painting of fruit, flowers or objects on a table? (two words)','still life','정물화는 still life예요.'],
+[2,'art','s','Which French painter is famous for his "Water Lilies"? (last name)','Monet','수련 연작은 클로드 모네(Monet)의 작품이에요.'],
+[2,'art','s','Which composer became deaf but kept writing great music? (last name)','Beethoven','베토벤(Beethoven)은 귀가 들리지 않게 된 뒤에도 작곡을 이어 갔어요.'],
+[2,'art','s','What is the Korean string instrument with 12 strings called?','gayageum|kayagum','가야금(gayageum)은 줄이 12개예요.'],
+[2,'art','s','In music, what does "forte" mean?','loud','forte(f)는 "세게, 크게"라는 뜻이에요. piano(p)는 "여리게"예요.'],
+
+[3,'art','m','Which painting by Edvard Munch shows a person holding their face in fear?','The Scream',['The Scream','The Kiss','Guernica','Sunflowers'],'뭉크의 "절규(The Scream)"예요.'],
+[3,'art','m','Who painted "Guernica"?','Pablo Picasso',['Pablo Picasso','Salvador Dalí','Joan Miró','Francisco Goya'],'게르니카는 전쟁의 아픔을 그린 피카소의 그림이에요.'],
+[3,'art','m','Who composed "The Four Seasons"?','Antonio Vivaldi',['Antonio Vivaldi','Johann Sebastian Bach','George Frideric Handel','Joseph Haydn'],'사계는 이탈리아 작곡가 비발디의 곡이에요.'],
+[3,'art','s','Which Italian artist painted the ceiling of the Sistine Chapel?','Michelangelo','시스티나 성당 천장화는 미켈란젤로(Michelangelo)가 그렸어요.'],
+[3,'art','s','What do we call a picture made of small pieces of colored glass or stone?','mosaic','작은 조각을 붙여 만든 그림은 모자이크(mosaic)예요.'],
+[3,'art','s','Which Italian music word means "very soft"?','pianissimo','pianissimo(pp)는 "매우 여리게"예요.'],
+[3,'art','s','Which Dutch painter made "Girl with a Pearl Earring"? (last name)','Vermeer','진주 귀고리를 한 소녀는 네덜란드 화가 페르메이르(Vermeer)의 작품이에요.'],
+[3,'art','s','Claude Monet belonged to which art movement?','Impressionism','모네는 인상주의(Impressionism) 화가예요.'],
+[3,'art','s','What is a group of four musicians or singers called?','quartet','4인조 연주단은 quartet(사중주)예요.'],
+[3,'art','s','Which Russian composer wrote "Swan Lake" and "The Nutcracker"? (last name)','Tchaikovsky','백조의 호수와 호두까기 인형은 차이콥스키(Tchaikovsky)의 작품이에요.'],
+
+[4,'art','m','Which painter cut off part of his own ear?','Vincent van Gogh',['Vincent van Gogh','Paul Gauguin','Edgar Degas','Paul Cézanne'],'반 고흐는 1888년에 자신의 귀 일부를 잘랐어요.'],
+[4,'art','m','Which Korean artist is called the father of video art?','Nam June Paik',['Nam June Paik','Kim Whanki','Lee Jung-seob','Park Seo-bo'],'백남준은 비디오 아트의 아버지로 불려요.'],
+[4,'art','m','Who composed the "Moonlight Sonata"?','Ludwig van Beethoven',['Ludwig van Beethoven','Frédéric Chopin','Franz Liszt','Franz Schubert'],'월광 소나타는 베토벤의 피아노 소나타 14번이에요.'],
+[4,'art','s','Which Spanish artist painted melting clocks in "The Persistence of Memory"? (last name)','Dalí|Dali','기억의 지속은 초현실주의 화가 달리(Dalí)의 작품이에요.'],
+[4,'art','s','Which Korean painter of the 1950s is famous for his paintings of bulls? (full name)','Lee Jung-seob|Lee Joong-seop|Lee Jung-sup','이중섭은 "황소" 그림으로 유명해요.'],
+[4,'art','s','In which Paris museum is the Mona Lisa kept?','Louvre','모나리자는 파리 루브르(Louvre) 박물관에 있어요.'],
+[4,'art','s','Which German composer wrote the "Brandenburg Concertos"? (full name)','Johann Sebastian Bach','브란덴부르크 협주곡은 바흐의 작품이에요. 바흐는 "음악의 아버지"로 불려요.'],
+[4,'art','s','What is the Italian word for a song sung by one singer in an opera?','aria','오페라에서 혼자 부르는 노래를 아리아(aria)라고 해요.'],
+[4,'art','s','What is the art of beautiful handwriting called?','calligraphy','서예, 캘리그래피는 calligraphy예요.'],
+[4,'art','s','Which Austrian painter made "The Kiss" using gold leaf? (full name)','Gustav Klimt','키스는 구스타프 클림트가 금박을 써서 그렸어요.'],
+
+/* ===== 스포츠 spo ===== */
+[1,'spo','m','How many players does a soccer team have on the field?','11',['11','9','10','12'],'축구는 한 팀에 11명이 뛰어요.'],
+[1,'spo','m','In which sport do you hit a shuttlecock?','badminton',['badminton','tennis','golf','baseball'],'셔틀콕을 치는 운동은 배드민턴이에요.'],
+[1,'spo','m','What color medal is given for first place?','gold',['gold','silver','bronze','copper'],'1등은 금메달(gold)이에요.'],
+[1,'spo','s','What is Korea\'s national martial art with many kicks?','taekwondo','태권도(taekwondo)는 한국의 국기예요.'],
+[1,'spo','s','In baseball, how many strikes make an out? (number)','3','스트라이크 3개면 아웃이에요.'],
+[1,'spo','s','In which sport can you hit a "home run"?','baseball','홈런은 야구(baseball) 용어예요.'],
+[1,'spo','s','How many rings are on the Olympic flag? (number)','5','올림픽 오륜기의 고리는 5개로 다섯 대륙을 뜻해요.'],
+[1,'spo','s','In which sport do players throw a ball through a hoop?','basketball','농구(basketball)예요.'],
+[1,'spo','s','Which sport slides heavy stones across ice toward a target?','curling','컬링(curling)이에요.'],
+[1,'spo','s','How many points is a touchdown worth in American football? (number)','6','미식축구 터치다운은 6점이에요.'],
+
+[2,'spo','m','Which country won the 2022 FIFA World Cup?','Argentina',['Argentina','France','Brazil','Germany'],'2022 카타르 월드컵 우승은 아르헨티나예요.'],
+[2,'spo','m','In tennis, what is a score of zero called?','love',['love','nil','zip','blank'],'테니스에서 0점은 love라고 해요.'],
+[2,'spo','m','Which Korean soccer player was captain of Tottenham Hotspur?','Son Heung-min',['Son Heung-min','Park Ji-sung','Lee Kang-in','Kim Min-jae'],'손흥민은 토트넘의 주장을 맡았어요.'],
+[2,'spo','s','How many minutes is a normal soccer match, without extra time? (number)','90','축구는 전반 45분, 후반 45분, 모두 90분이에요.'],
+[2,'spo','s','In which country were the first modern Olympic Games held in 1896?','Greece','근대 올림픽은 1896년 그리스 아테네에서 처음 열렸어요.'],
+[2,'spo','s','Which sport is played at Wimbledon?','tennis','윔블던은 영국의 테니스(tennis) 대회예요.'],
+[2,'spo','s','Which Korean figure skater won Olympic gold in 2010? (full name)','Kim Yuna|Kim Yu-na|Yuna Kim','김연아는 2010 밴쿠버 올림픽에서 금메달을 땄어요.'],
+[2,'spo','s','How long is a marathon, to the nearest whole kilometer? (number)','42','마라톤은 42.195km예요.'],
+[2,'spo','s','Which Japanese martial art\'s name means "gentle way"?','judo','유도(judo)는 "부드러운 길"이라는 뜻이에요.'],
+[2,'spo','s','How many players does a volleyball team have on the court? (number)','6','배구는 한 팀에 6명이 코트에 서요.'],
+
+[3,'spo','m','Which swimmer won 8 gold medals at the 2008 Beijing Olympics?','Michael Phelps',['Michael Phelps','Ian Thorpe','Park Tae-hwan','Mark Spitz'],'마이클 펠프스는 2008년에 금메달 8개를 땄어요.'],
+[3,'spo','m','In which city were the 1988 Summer Olympics held?','Seoul',['Seoul','Tokyo','Barcelona','Los Angeles'],'1988년 하계 올림픽은 서울에서 열렸어요.'],
+[3,'spo','m','What is a perfect score in ten-pin bowling?','300',['300','200','250','500'],'볼링 퍼펙트 게임은 300점이에요.'],
+[3,'spo','s','In golf, what is one stroke under par called?','birdie','기준 타수보다 1타 적으면 버디(birdie)예요.'],
+[3,'spo','s','Which country has won the most FIFA World Cups?','Brazil','브라질은 월드컵에서 5번 우승했어요.'],
+[3,'spo','s','What is the Japanese wrestling sport with very large wrestlers?','sumo','스모(sumo)예요.'],
+[3,'spo','s','In which sport is the Stanley Cup given? (two words)','ice hockey|hockey','스탠리컵은 북미 아이스하키(ice hockey) 리그의 우승컵이에요.'],
+[3,'spo','s','How many players does a baseball team have on the field? (number)','9','야구는 수비할 때 9명이 나와요.'],
+[3,'spo','s','Which Jamaican sprinter holds the 100 m world record of 9.58 seconds? (full name)','Usain Bolt','우사인 볼트는 2009년에 100m 9초58을 기록했어요.'],
+[3,'spo','s','In archery, what color is the center of the target?','gold|yellow','양궁 과녁의 가운데는 금색(노란색)이에요.'],
+
+[4,'spo','m','In which year will Los Angeles host the Summer Olympics?','2028',['2028','2032','2026','2030'],'LA 올림픽은 2028년에 열려요.'],
+[4,'spo','m','Which city will host the 2032 Summer Olympics?','Brisbane',['Brisbane','Sydney','Melbourne','Perth'],'2032년 하계 올림픽은 호주 브리즈번에서 열려요.'],
+[4,'spo','m','How many players does each cricket team have on the field?','11',['11','9','10','12'],'크리켓은 한 팀이 11명이에요.'],
+[4,'spo','s','What do we call three goals scored by one player in one game? (two words)','hat trick|hat-trick','한 경기 3골은 해트트릭(hat trick)이에요.'],
+[4,'spo','s','In which country did the sport of judo begin?','Japan','유도는 1882년 일본에서 시작됐어요.'],
+[4,'spo','s','Which sport uses the words "ace", "deuce" and "let"?','tennis','에이스·듀스·렛은 테니스 용어예요.'],
+[4,'spo','s','What color card does a soccer referee show to send a player off?','red|red card','레드카드(red card)를 받으면 퇴장이에요.'],
+[4,'spo','s','The Ryder Cup is a famous team event in which sport?','golf','라이더컵은 미국과 유럽의 골프(golf) 대항전이에요.'],
+[4,'spo','s','How many events are there in a decathlon? (number)','10','10종 경기(decathlon)는 10개 종목이에요. deca = 10이에요.'],
+[4,'spo','s','What is the most famous bicycle race in France? (three words)','Tour de France','투르 드 프랑스(Tour de France)예요.'],
+
+/* ===== 지리 geo ===== */
+[1,'geo','m','Which is the largest ocean?','Pacific Ocean',['Pacific Ocean','Atlantic Ocean','Indian Ocean','Arctic Ocean'],'가장 큰 바다는 태평양(Pacific Ocean)이에요.'],
+[1,'geo','m','What is the capital of Japan?','Tokyo',['Tokyo','Osaka','Kyoto','Seoul'],'일본의 수도는 도쿄예요.'],
+[1,'geo','m','On which continent is Egypt?','Africa',['Africa','Asia','Europe','South America'],'이집트는 아프리카 북동쪽에 있어요.'],
+[1,'geo','s','What is the capital of France?','Paris','프랑스의 수도는 파리(Paris)예요.'],
+[1,'geo','s','What is the largest continent?','Asia','가장 큰 대륙은 아시아(Asia)예요.'],
+[1,'geo','s','Which country is shaped like a boot?','Italy','장화 모양 나라는 이탈리아(Italy)예요.'],
+[1,'geo','s','What is the capital of China?','Beijing','중국의 수도는 베이징(Beijing)이에요.'],
+[1,'geo','s','On which continent do kangaroos live in the wild?','Australia','캥거루는 오스트레일리아(Australia)에 살아요.'],
+[1,'geo','s','What is the coldest continent?','Antarctica','가장 추운 대륙은 남극(Antarctica)이에요.'],
+[1,'geo','s','Which mountain on Jeju Island is the highest in South Korea?','Hallasan|Mount Halla','한라산(Hallasan)은 높이 1,947m예요.'],
+
+[2,'geo','m','Which river flows through Egypt?','Nile',['Nile','Amazon','Thames','Mississippi'],'나일강은 이집트를 지나 지중해로 흘러요.'],
+[2,'geo','m','What is the capital of Australia?','Canberra',['Canberra','Sydney','Melbourne','Perth'],'호주의 수도는 시드니가 아니라 캔버라예요.'],
+[2,'geo','m','Which country has the largest land area?','Russia',['Russia','Canada','China','United States'],'면적이 가장 넓은 나라는 러시아예요.'],
+[2,'geo','s','What is the highest mountain in the world? (two words)','Mount Everest|Everest','세계 최고봉은 에베레스트산(Mount Everest), 8,849m예요.'],
+[2,'geo','s','What is the largest desert in Africa?','Sahara|Sahara Desert','사하라(Sahara) 사막이에요.'],
+[2,'geo','s','What is the capital of Canada?','Ottawa','캐나다의 수도는 오타와(Ottawa)예요.'],
+[2,'geo','s','What is the largest island in South Korea?','Jeju|Jeju Island|Jejudo','가장 큰 섬은 제주도(Jeju Island)예요.'],
+[2,'geo','s','What is the capital of the United Kingdom?','London','영국의 수도는 런던(London)이에요.'],
+[2,'geo','s','Which imaginary line divides the Earth into northern and southern halves?','equator|Equator','적도는 equator예요.'],
+[2,'geo','s','In which country is the city of Rio de Janeiro?','Brazil','리우데자네이루는 브라질(Brazil)에 있어요.'],
+
+[3,'geo','m','What is the capital of Brazil?','Brasília',['Brasília','Rio de Janeiro','São Paulo','Buenos Aires'],'브라질의 수도는 브라질리아예요.'],
+[3,'geo','m','Since 2023, which country has the most people?','India',['India','China','United States','Indonesia'],'2023년에 인도가 중국을 넘어 인구 1위가 됐어요.'],
+[3,'geo','m','Which strait lies between Korea and Japan?','Korea Strait',['Korea Strait','Strait of Gibraltar','Bering Strait','Strait of Malacca'],'한국과 일본 사이는 대한해협(Korea Strait)이에요.'],
+[3,'geo','s','What is the smallest country in the world? (two words)','Vatican City|Vatican','가장 작은 나라는 바티칸 시국(Vatican City)이에요.'],
+[3,'geo','s','What is the capital of Egypt?','Cairo','이집트의 수도는 카이로(Cairo)예요.'],
+[3,'geo','s','What is the longest river in South America?','Amazon|Amazon River','남아메리카에서 가장 긴 강은 아마존강이에요.'],
+[3,'geo','s','What is the capital of Germany?','Berlin','독일의 수도는 베를린(Berlin)이에요.'],
+[3,'geo','s','In which mountain range is Mount Everest?','Himalayas|Himalaya','에베레스트는 히말라야(Himalayas) 산맥에 있어요.'],
+[3,'geo','s','What is the sea between Korea and China called? (two words)','Yellow Sea','한국과 중국 사이 바다는 황해, 서해(Yellow Sea)예요.'],
+[3,'geo','s','Which U.S. state is the largest by area?','Alaska','면적이 가장 큰 미국 주는 알래스카(Alaska)예요.'],
+
+[4,'geo','m','What is the deepest place in the ocean?','Mariana Trench',['Mariana Trench','Puerto Rico Trench','Java Trench','Tonga Trench'],'마리아나 해구는 깊이가 약 11km예요.'],
+[4,'geo','m','Which African country has the most people?','Nigeria',['Nigeria','Egypt','Ethiopia','South Africa'],'아프리카 인구 1위는 나이지리아예요.'],
+[4,'geo','m','What is the capital of Turkey (Türkiye)?','Ankara',['Ankara','Istanbul','Izmir','Antalya'],'튀르키예의 수도는 이스탄불이 아니라 앙카라예요.'],
+[4,'geo','s','What is the largest lake in Africa? (two words)','Lake Victoria','아프리카에서 가장 큰 호수는 빅토리아호(Lake Victoria)예요.'],
+[4,'geo','s','In which country is Machu Picchu?','Peru','마추픽추는 페루(Peru)에 있어요.'],
+[4,'geo','s','What is the capital of New Zealand?','Wellington','뉴질랜드의 수도는 웰링턴(Wellington)이에요.'],
+[4,'geo','s','What is the largest island in the world?','Greenland','세계에서 가장 큰 섬은 그린란드(Greenland)예요.'],
+[4,'geo','s','Which imaginary line at 0° longitude passes through Greenwich, London? (two words)','prime meridian|Prime Meridian','본초 자오선은 prime meridian이에요.'],
+[4,'geo','s','What is the capital of Vietnam?','Hanoi','베트남의 수도는 하노이(Hanoi)예요.'],
+[4,'geo','s','What is the highest waterfall in the world? (two words)','Angel Falls','세계에서 가장 높은 폭포는 베네수엘라의 앙헬 폭포(Angel Falls)예요.'],
+
+/* ===== 인물 peo ===== */
+[1,'peo','m','Who is famous for inventing a long-lasting electric light bulb?','Thomas Edison',['Thomas Edison','Isaac Newton','Albert Einstein','Alexander Graham Bell'],'토머스 에디슨은 오래 켜지는 전구를 만들었어요.'],
+[1,'peo','m','Who made the first successful airplane flight in 1903?','the Wright brothers',['the Wright brothers','Thomas Edison','Henry Ford','Neil Armstrong'],'라이트 형제가 1903년에 처음 동력 비행에 성공했어요.'],
+[1,'peo','m','Which nun helped poor and sick people in India?','Mother Teresa',['Mother Teresa','Florence Nightingale','Marie Curie','Helen Keller'],'마더 테레사는 인도 콜카타에서 가난한 사람들을 돌봤어요.'],
+[1,'peo','s','Which nurse was called "The Lady with the Lamp"? (full name)','Florence Nightingale','"등불을 든 여인"은 플로렌스 나이팅게일이에요.'],
+[1,'peo','s','Who invented the telephone? (full name)','Alexander Graham Bell','전화기는 알렉산더 그레이엄 벨이 발명했어요.'],
+[1,'peo','s','Which woman who could not see or hear learned to read and write with Anne Sullivan\'s help? (full name)','Helen Keller','헬렌 켈러는 설리번 선생님과 함께 공부했어요.'],
+[1,'peo','s','Which scientist found the law of gravity, in the story of a falling apple? (full name)','Isaac Newton','사과 이야기로 유명한 과학자는 아이작 뉴턴이에요.'],
+[1,'peo','s','Who started Microsoft with Paul Allen? (full name)','Bill Gates','마이크로소프트는 빌 게이츠와 폴 앨런이 세웠어요.'],
+[1,'peo','s','Who co-founded Apple and introduced the iPhone? (full name)','Steve Jobs','스티브 잡스는 애플을 세우고 아이폰을 소개했어요.'],
+[1,'peo','s','Which teenage girl led a 1919 independence protest in Cheonan, Korea? (full name)','Yu Gwan-sun|Yoo Gwan-sun|Ryu Gwan-sun','유관순 열사는 1919년 아우내 장터 만세 운동을 이끌었어요.'],
+
+[2,'peo','m','Who was the first woman to win a Nobel Prize?','Marie Curie',['Marie Curie','Rosalind Franklin','Ada Lovelace','Jane Goodall'],'마리 퀴리는 1903년 노벨 물리학상을 받았어요.'],
+[2,'peo','m','Who gave the "I Have a Dream" speech?','Martin Luther King Jr.',['Martin Luther King Jr.','Malcolm X','Barack Obama','Rosa Parks'],'마틴 루서 킹 주니어가 1963년에 한 연설이에요.'],
+[2,'peo','m','Who was the first person to travel into space?','Yuri Gagarin',['Yuri Gagarin','Neil Armstrong','Alan Shepard','Valentina Tereshkova'],'1961년 소련의 유리 가가린이 처음 우주에 갔어요.'],
+[2,'peo','s','Which woman refused to give up her bus seat in Alabama in 1955? (full name)','Rosa Parks','로자 파크스의 행동은 미국 민권 운동의 시작이 됐어요.'],
+[2,'peo','s','Who was the first Black president of the United States? (full name)','Barack Obama','버락 오바마는 미국의 44대 대통령이에요.'],
+[2,'peo','s','Which scientist studied chimpanzees in Tanzania for many years? (full name)','Jane Goodall','제인 구달은 침팬지 연구로 유명해요.'],
+[2,'peo','s','Which Korean independence leader was known as "Baekbeom"? (full name)','Kim Gu|Kim Koo','백범은 김구 선생의 호예요.'],
+[2,'peo','s','Which Pakistani girl won the Nobel Peace Prize at 17 for girls\' education? (first name)','Malala','말랄라(Malala) 유사프자이는 2014년 노벨 평화상을 받았어요.'],
+[2,'peo','s','Who founded Facebook? (full name)','Mark Zuckerberg','페이스북은 마크 저커버그가 만들었어요.'],
+[2,'peo','s','Whose famous formula is E = mc²? (full name)','Albert Einstein','E = mc²는 아인슈타인의 공식이에요.'],
+
+[3,'peo','m','Who was the first woman to fly alone across the Atlantic Ocean?','Amelia Earhart',['Amelia Earhart','Bessie Coleman','Valentina Tereshkova','Sally Ride'],'아멜리아 에어하트는 1932년 대서양을 혼자 건넜어요.'],
+[3,'peo','m','Who made the first widely used polio vaccine?','Jonas Salk',['Jonas Salk','Louis Pasteur','Edward Jenner','Alexander Fleming'],'조너스 소크가 1955년 소아마비 백신을 내놓았어요.'],
+[3,'peo','m','Who discovered penicillin?','Alexander Fleming',['Alexander Fleming','Louis Pasteur','Robert Koch','Edward Jenner'],'플레밍이 1928년 페니실린을 발견했어요.'],
+[3,'peo','s','Who made the first smallpox vaccine in 1796? (full name)','Edward Jenner','에드워드 제너가 천연두 백신을 만들었어요.'],
+[3,'peo','s','Which Korean independence fighter shot Ito Hirobumi in 1909? (full name)','An Jung-geun|Ahn Jung-geun','안중근 의사는 하얼빈역에서 이토 히로부미를 저격했어요.'],
+[3,'peo','s','Which Polish-French scientist discovered polonium and radium? (full name)','Marie Curie','폴로늄과 라듐은 마리 퀴리가 발견했어요.'],
+[3,'peo','s','Who was the first woman in space? (full name)','Valentina Tereshkova','발렌티나 테레시코바가 1963년 첫 여성 우주인이 됐어요.'],
+[3,'peo','s','Who is called the father of computer science and helped break the Enigma code? (full name)','Alan Turing','앨런 튜링은 컴퓨터 과학의 아버지로 불려요.'],
+[3,'peo','s','Which Joseon scholar designed the geojunggi crane for building Hwaseong Fortress? (full name)','Jeong Yak-yong|Jung Yak-yong','정약용은 거중기를 설계해 수원 화성을 쌓는 데 도움을 줬어요.'],
+[3,'peo','s','Which Italian astronomer used a telescope to find moons of Jupiter? (first name)','Galileo','갈릴레오(Galileo)는 목성의 위성 4개를 발견했어요.'],
+
+[4,'peo','m','Who was the first woman Prime Minister of the United Kingdom?','Margaret Thatcher',['Margaret Thatcher','Theresa May','Elizabeth II','Indira Gandhi'],'마거릿 대처는 1979년 영국 첫 여성 총리가 됐어요.'],
+[4,'peo','m','Which Korean served as Secretary-General of the United Nations?','Ban Ki-moon',['Ban Ki-moon','Kofi Annan','António Guterres','Boutros Boutros-Ghali'],'반기문은 2007~2016년 유엔 사무총장이었어요.'],
+[4,'peo','m','Who is often called the first computer programmer?','Ada Lovelace',['Ada Lovelace','Charles Babbage','Grace Hopper','Alan Turing'],'에이다 러브레이스는 1840년대에 최초의 프로그램을 썼어요.'],
+[4,'peo','s','Which German made a printing press with movable type around 1450? (last name)','Gutenberg','구텐베르크(Gutenberg)는 유럽에 활판 인쇄술을 퍼뜨렸어요.'],
+[4,'peo','s','Which Polish astronomer said the Earth moves around the Sun? (last name)','Copernicus','코페르니쿠스(Copernicus)는 지동설을 주장했어요.'],
+[4,'peo','s','Which Goguryeo king greatly expanded its land and has a famous stele? (King ___ the Great)','Gwanggaeto','광개토대왕(Gwanggaeto the Great)이에요.'],
+[4,'peo','s','Which Russian chemist made the periodic table? (last name)','Mendeleev','멘델레예프(Mendeleev)가 1869년 주기율표를 만들었어요.'],
+[4,'peo','s','Which American flew a kite in a storm to study electricity? (full name)','Benjamin Franklin','벤저민 프랭클린은 연 실험으로 번개가 전기임을 보였어요.'],
+[4,'peo','s','Who led the first team to reach the South Pole, in 1911? (full name)','Roald Amundsen','노르웨이의 로알 아문센이 1911년 남극점에 처음 도착했어요.'],
+[4,'peo','s','Which English scientist studied black holes and wrote "A Brief History of Time"? (full name)','Stephen Hawking','스티븐 호킹은 블랙홀 연구로 유명해요.']
+];
+
+</script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- constants ---------- */
+var CATS = {cur:'시사 상식',lit:'문학',his:'역사',sci:'과학',mat:'수학',art:'예술',spo:'스포츠',geo:'지리',peo:'인물'};
+var CAT_KEYS = Object.keys(CATS);
+var LV = {1:{name:'기초',desc:'초등 5~6학년 교과 기본'},2:{name:'실력',desc:'초6~중1 기본 상식'},3:{name:'심화',desc:'중1 심화, 대회 본선'},4:{name:'결승',desc:'골든벨 마지막 문제급'}};
+var LV_EN = {1:'basic, for 5th-6th graders (simple facts every child learns at school)',2:'standard, for 6th graders to 7th graders',3:'advanced, for strong 7th graders in a contest semi-final',4:'final round of a Golden Bell contest: hard but still fair for a top 7th grader'};
+var SET_SIZE = 30, MC_N = 9, SA_N = 21, PASS = 0.8;
+var BASE = {1:10,2:20,3:30,4:40};
+var TITLES = [[0,'새싹 도전자'],[300,'열공 도전자'],[1000,'퀴즈 탐험가'],[2500,'지식 기사'],[5000,'골든벨 후보'],[10000,'골든벨 챔피언']];
+var AVATARS = ['🦊','🐯','🐼','🐰','🐬','🦉','🐢','🦁','🐧','🐨','🐙','🦄'];
+var BADGES = [
+  ['first','🔔','첫 종소리','첫 세트를 끝까지 풀었어요'],
+  ['perfect','🏆','퍼펙트','한 세트 30문제를 모두 맞혔어요'],
+  ['spell21','✍️','스펠링 왕','한 세트 단답형 21문제를 모두 맞혔어요'],
+  ['combo10','🔥','10연속','10문제를 연속으로 맞혔어요'],
+  ['streak3','📅','3일 연속','3일 연속으로 오늘의 30문제를 풀었어요'],
+  ['streak7','🗓️','7일 연속','7일 연속으로 풀었어요'],
+  ['streak30','🌟','30일 연속','30일 연속으로 풀었어요'],
+  ['lv2','🥉','실력 승급','2단계에 올라갔어요'],
+  ['lv3','🥈','심화 승급','3단계에 올라갔어요'],
+  ['lv4','🥇','결승 승급','4단계에 올라갔어요'],
+  ['bell','🛎️','골든벨!','4단계 세트에서 80% 이상 맞혔어요'],
+  ['review10','📘','오답 정복 10','오답 노트에서 10문제를 졸업시켰어요'],
+  ['review50','📚','오답 정복 50','오답 노트에서 50문제를 졸업시켰어요'],
+  ['cat30','🎓','분야 박사','한 분야에서 누적 30문제를 맞혔어요']
+];
+var IS_CLAUDE = !!(window.claude && typeof window.claude.use === 'function');
+var BELL_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4a3 3 0 0 1 3 3v1.4c6.3 1.4 10.5 6.9 10.5 13.6v8.5l3.6 5.2c.6.9 0 2.1-1.1 2.1H8c-1.1 0-1.7-1.2-1.1-2.1l3.6-5.2V22c0-6.7 4.2-12.2 10.5-13.6V7a3 3 0 0 1 3-3z" fill="var(--brass)"/><path d="M18.5 39.5h11a5.5 5.5 0 0 1-11 0z" fill="var(--brass)"/><path d="M15 22c0-3.6 2.2-6.8 5.4-8.1" stroke="#fff" stroke-opacity=".55" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>';
+
+/* ---------- questions ---------- */
+function hash(s){var h=5381;for(var i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0}return (h>>>0).toString(36)}
+var BUILTIN = BANK.map(function(r){
+  var isM = r[2]==='m';
+  return {id:'b'+hash(r[3]),l:r[0],c:r[1],t:r[2],q:r[3],a:String(r[4]).split('|'),o:isM?r[5]:null,e:isM?r[6]:r[5],src:'bank'};
+});
+
+/* ---------- storage ---------- */
+var KEY='goldenbell.v1', memOnly=false;
+var S = load();
+function blank(){return {students:[],extra:[],excluded:{},activeId:null,apiKey:'',voice:''}}
+function load(){
+  try{var raw=localStorage.getItem(KEY); if(raw){var d=JSON.parse(raw); var b=blank(); for(var k in b){if(!(k in d))d[k]=b[k]} return d;}}
+  catch(e){memOnly=true}
+  return blank();
+}
+function save(){ if(memOnly)return; try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){memOnly=true; toast('이 브라우저에는 기록을 저장할 수 없어요. 창을 닫으면 기록이 사라져요.')} }
+function allQ(){return BUILTIN.concat(S.extra||[])}
+var QMAP=null;
+function qById(id){ if(!QMAP){QMAP={};allQ().forEach(function(q){QMAP[q.id]=q})} return QMAP[id] }
+function resetQMap(){QMAP=null}
+
+/* ---------- dates ---------- */
+function pad(n){return (n<10?'0':'')+n}
+function dstr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function today(){return dstr(new Date())}
+function yesterday(){var d=new Date();d.setDate(d.getDate()-1);return dstr(d)}
+
+/* ---------- students ---------- */
+function newStudent(name,av,level){
+  return {id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:name,av:av,level:level,points:0,streak:0,lastDay:'',dailyDone:'',
+    history:[],seen:{},wrong:{},cleared:0,badges:{},cur:null,cat:{},bestCombo:0,last:null};
+}
+function stu(){for(var i=0;i<S.students.length;i++){if(S.students[i].id===S.activeId)return S.students[i]}return null}
+function titleOf(p){var t=TITLES[0][1];TITLES.forEach(function(x){if(p>=x[0])t=x[1]});return t}
+function nextTitle(p){for(var i=0;i<TITLES.length;i++){if(p<TITLES[i][0])return TITLES[i]}return null}
+
+/* ---------- set builder ---------- */
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function buildSet(st,level){
+  var pool = allQ().filter(function(q){return q.l===level && !S.excluded[q.id]});
+  function key(q){var s=st.seen[q.id]; return s ? (s.n*1e13 + s.last + Math.random()) : (Math.random()-2)}
+  var keyed = pool.map(function(q){return {q:q,k:key(q)}}).sort(function(a,b){return a.k-b.k}).map(function(x){return x.q});
+  var cells={}; keyed.forEach(function(q){var k=q.c+q.t;(cells[k]=cells[k]||[]).push(q)});
+  var picked=[], used={};
+  function take(c,t){var arr=cells[c+t]; while(arr&&arr.length){var q=arr.shift(); if(!used[q.id]){used[q.id]=1;picked.push(q);return true}} return false}
+  CAT_KEYS.forEach(function(c){take(c,'m')});
+  CAT_KEYS.forEach(function(c){take(c,'s');take(c,'s')});
+  shuffle(CAT_KEYS.slice()).forEach(function(c){ if(count('s')<SA_N) take(c,'s') });
+  function count(t){return picked.filter(function(q){return q.t===t}).length}
+  function fill(t,limit){var rest=keyed.filter(function(q){return !used[q.id] && (!t||q.t===t)});
+    while(picked.length<SET_SIZE && (!limit||count(t)<limit) && rest.length){var q=rest.shift();used[q.id]=1;picked.push(q)}}
+  fill('m',MC_N); fill('s',SA_N); fill(null);
+  return shuffle(picked).map(function(q){return q.id});
+}
+function unseenCount(st,level){return allQ().filter(function(q){return q.l===level&&!S.excluded[q.id]&&!st.seen[q.id]}).length}
+
+/* ---------- grading ---------- */
+function gradeSA(q,given){
+  var g=given.replace(/^\s+|\s+$/g,'');
+  return q.a.indexOf(g)>=0;
+}
+function lev(a,b){var m=a.length,n=b.length,d=[];for(var i=0;i<=m;i++){d[i]=[i]}for(var j=0;j<=n;j++){d[0][j]=j}
+  for(i=1;i<=m;i++)for(j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
+function hintFor(q,given){
+  var g=given.trim(), a=q.a[0];
+  if(!g) return '답을 쓰지 않았어요.';
+  for(var i=0;i<q.a.length;i++){ if(q.a[i].toLowerCase()===g.toLowerCase()) return '철자는 맞지만 대문자·소문자가 달라요. 대회에서는 이것도 오답이에요.'; }
+  if(/^(the|a|an) /i.test(g)) return 'a / an / the 없이 써야 해요.';
+  var best=99; q.a.forEach(function(x){best=Math.min(best,lev(x.toLowerCase(),g.toLowerCase()))});
+  if(best<=2) return '거의 맞았어요! 철자가 '+best+'글자 달라요.';
+  return '';
+}
+
+/* ---------- speech ---------- */
+var voices=[];
+function loadVoices(){try{voices=speechSynthesis.getVoices().filter(function(v){return /^en[-_]/i.test(v.lang)})}catch(e){voices=[]}}
+if('speechSynthesis' in window){loadVoices(); try{speechSynthesis.onvoiceschanged=loadVoices}catch(e){}}
+function bestVoice(){
+  if(S.voice){for(var i=0;i<voices.length;i++){if(voices[i].name===S.voice)return voices[i]}}
+  var us=voices.filter(function(v){return /en[-_]US/i.test(v.lang)}); var list=us.length?us:voices;
+  var good=list.filter(function(v){return /(natural|neural|premium|enhanced|향상|google)/i.test(v.name)});
+  return good[0]||list[0]||null;
+}
+function speak(text){
+  if(!('speechSynthesis' in window)){toast('이 기기에서는 읽어 주기를 쓸 수 없어요.');return}
+  try{speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(text.replace(/\((.*?)\)/g,'. $1')); var v=bestVoice(); if(v){u.voice=v;u.lang=v.lang}else{u.lang='en-US'} u.rate=0.92; speechSynthesis.speak(u)}catch(e){}
+}
+
+/* ---------- DOM helper ---------- */
+function h(tag,attrs){
+  var e=document.createElement(tag);
+  if(attrs)for(var k in attrs){var v=attrs[k]; if(v==null||v===false)continue;
+    if(k==='class')e.className=v; else if(k==='text')e.textContent=v; else if(k==='html')e.innerHTML=v;
+    else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v); else e.setAttribute(k,v===true?'':v)}
+  for(var i=2;i<arguments.length;i++)add(e,arguments[i]);
+  return e;
+}
+function add(e,c){if(c==null||c===false)return; if(Array.isArray(c)){c.forEach(function(x){add(e,x)});return} e.appendChild(typeof c==='string'||typeof c==='number'?document.createTextNode(String(c)):c)}
+var app=document.getElementById('app');
+function mount(){app.innerHTML='';for(var i=0;i<arguments.length;i++)add(app,arguments[i]);window.scrollTo(0,0)}
+var toastT;
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},2600)}
+function bell(){var s=h('span');s.innerHTML=BELL_SVG;return s.firstChild}
+
+function topbar(st,back){
+  return h('div',{class:'top'},
+    back?h('button',{class:'iconbtn','aria-label':'뒤로',onclick:back},'←'):null,
+    h('div',{class:'brand'},bell(),'골든벨 30'),
+    h('div',{class:'grow'}),
+    st?h('span',{class:'chip brass num'},'⭐ '+st.points.toLocaleString()+'점'):null
+  );
+}
+
+/* ================= SCREENS ================= */
+var tab='today';
+
+function home(){
+  S.activeId=null; save();
+  var list = h('div',{class:'students'}, S.students.map(function(st){
+    return h('button',{class:'stu',onclick:function(){S.activeId=st.id;save();tab='today';dash()}},
+      h('span',{class:'av'},st.av), h('b',{},st.name),
+      h('span',{class:'small muted'},'Lv'+st.level+' '+LV[st.level].name+' · '+titleOf(st.points)),
+      h('span',{class:'small num'},'⭐ '+st.points.toLocaleString()+'점'+(st.streak?' · 🔥'+st.streak+'일':'')));
+  }));
+  mount(
+    topbar(null),
+    h('div',{class:'stack'},
+      h('h1',{},'오늘도 골든벨을 울려 볼까요?'),
+      h('p',{class:'muted'},'영어 상식 30문제가 매일 새로 나와요. 사지선다 9문제, 단답형 21문제예요. 한 세트를 80% 이상 맞히면 다음 난이도로 올라가요.'),
+      memOnly?h('div',{class:'notice'},'이 브라우저는 기록을 저장하지 못해요. 사파리 개인정보 보호 모드라면 일반 창에서 열어 주세요.'):null,
+      S.students.length?h('h2',{},'누가 풀까요?'):null,
+      S.students.length?list:null,
+      addStudentForm()
+    )
+  );
+}
+
+function addStudentForm(){
+  var av=AVATARS[S.students.length%AVATARS.length], lv=1;
+  var name=h('input',{class:'input',id:'newname',maxlength:'12',placeholder:'예: 민준',autocomplete:'off'});
+  var avs=h('div',{class:'avatars'},AVATARS.map(function(a){return h('button',{type:'button','aria-pressed':String(a===av),'aria-label':'아바타 '+a,onclick:function(){av=a;[].forEach.call(avs.children,function(b){b.setAttribute('aria-pressed',String(b.textContent===a))})}},a)}));
+  var seg=h('div',{class:'seg'},[1,2,3,4].map(function(n){return h('button',{type:'button','aria-pressed':String(n===lv),onclick:function(){lv=n;[].forEach.call(seg.children,function(b,i){b.setAttribute('aria-pressed',String(i+1===n))})}},h('b',{},'Lv'+n),h('br'),LV[n].name)}));
+  var form=h('form',{class:'card stack',onsubmit:function(e){e.preventDefault();var n=name.value.trim();if(!n){name.focus();toast('이름을 써 주세요.');return}
+      var st=newStudent(n,av,lv);S.students.push(st);S.activeId=st.id;save();tab='today';dash()}},
+    h('h3',{},S.students.length?'학생 추가하기':'먼저 학생을 등록해요'),
+    h('div',{class:'field'},h('label',{for:'newname'},'이름'),name),
+    h('div',{class:'field'},h('label',{},'아바타'),avs),
+    h('div',{class:'field'},h('label',{},'시작 난이도'),seg,h('p',{class:'small muted'},'처음이면 1단계를 추천해요. 선생님이 나중에 바꿀 수도 있어요.')),
+    h('button',{class:'btn primary block',type:'submit'},'등록하고 시작하기'));
+  return form;
+}
+
+function dash(){
+  var st=stu(); if(!st)return home();
+  var tabs=[['today','오늘'],['wrong','오답 노트'+(Object.keys(st.wrong).length?' '+Object.keys(st.wrong).length:'')],['rec','기록·배지'],['bank','문제 만들기']];
+  var body = tab==='wrong'?wrongTab(st):tab==='rec'?recTab(st):tab==='bank'?bankTab(st):todayTab(st);
+  mount(topbar(st,home),
+    h('div',{class:'tabs',role:'tablist'},tabs.map(function(t){return h('button',{role:'tab','aria-selected':String(tab===t[0]),onclick:function(){tab=t[0];dash()}},t[1])})),
+    body);
+}
+
+function todayTab(st){
+  var lastSame = st.history.filter(function(x){return x.level===st.level}).slice(-1)[0];
+  var pct = lastSame?lastSame.correct/lastSame.total:0;
+  var nt=nextTitle(st.points);
+  var stage=h('div',{class:'stage'},
+    h('div',{class:'who'},h('span',{class:'av'},st.av),h('div',{},h('div',{class:'title'},titleOf(st.points)),h('h2',{},st.name))),
+    h('div',{class:'stats'},
+      h('div',{class:'stat'},h('b',{class:'num'},st.points.toLocaleString()),h('span',{},'총점')),
+      h('div',{class:'stat'},h('b',{class:'num'},String(st.streak)),h('span',{},'연속 출석(일)')),
+      h('div',{class:'stat'},h('b',{class:'num'},String(Object.keys(st.badges).length)),h('span',{},'배지'))),
+    h('div',{class:'ladder'},[1,2,3,4].map(function(n){return h('div',{class:n===st.level?'now':n<st.level?'done':''},h('b',{},'Lv'+n),LV[n].name)})),
+    st.level<4?h('div',{class:'stack',style:'gap:6px'},
+      h('div',{class:'spread small'},h('span',{},'승급 조건: 한 세트 정답률 80% 이상'),h('span',{class:'num'},lastSame?'최근 '+Math.round(pct*100)+'%':'아직 기록 없음')),
+      h('div',{class:'meter','aria-hidden':'true'},h('i',{style:'width:'+Math.round(pct*100)+'%'}),h('em'))
+    ):h('p',{class:'small'},'최고 단계예요. 80% 이상이면 골든벨 배지를 받아요.'),
+    nt?h('p',{class:'small',style:'opacity:.8'},'다음 칭호 "'+nt[1]+'"까지 '+(nt[0]-st.points).toLocaleString()+'점'):null
+  );
+  var t=today(), cur=st.cur, inProg = cur && !cur.done;
+  var doneToday = st.dailyDone===t;
+  var ctas=h('div',{class:'ctas'});
+  if(inProg){
+    ctas.appendChild(h('button',{class:'btn brass block',onclick:function(){quiz()}},'이어서 풀기 ('+cur.i+' / '+cur.ids.length+')'));
+  } else if(!doneToday){
+    ctas.appendChild(h('button',{class:'btn brass block',onclick:function(){startSet('daily')}},'오늘의 30문제 시작 · Lv'+st.level+' '+LV[st.level].name));
+  } else {
+    ctas.appendChild(h('div',{class:'notice'},'오늘의 30문제를 끝냈어요! 더 풀고 싶으면 추가 세트를 풀어요. 추가 세트도 80% 이상이면 승급해요.'));
+    ctas.appendChild(h('button',{class:'btn primary block',onclick:function(){startSet('extra')}},'추가 30문제 풀기'));
+  }
+  var wn=Object.keys(st.wrong).length;
+  if(wn) ctas.appendChild(h('button',{class:'btn ghost block',onclick:function(){startReview(null)}},'오답 '+wn+'문제 다시 풀기'));
+  var un=unseenCount(st,st.level);
+  var low = un<SET_SIZE ? h('div',{class:'notice'},'Lv'+st.level+'에서 아직 안 푼 문제가 '+un+'개 남았어요. "문제 만들기" 탭에서 Claude로 새 문제를 더 만들 수 있어요. 새 문제가 없으면 오래전에 푼 문제부터 다시 나와요.') : null;
+  return h('div',{class:'stack'},stage,ctas,low,
+    h('details',{class:'card'},h('summary',{},'채점 규칙과 점수'),h('div',{class:'stack small'},
+      h('p',{},'단답형은 철자가 정답과 똑같아야 맞아요. 대문자·소문자도 정확해야 해요. 답 앞뒤의 빈칸만 지워서 채점해요.'),
+      h('p',{},'쓰는 법: 나라·도시·사람 이름 같은 고유명사는 대문자로 시작해요(Paris). 보통 단어는 소문자로 써요(gravity). 숫자는 아라비아 숫자로 써요(17). a / an / the는 쓰지 않아요.'),
+      h('p',{},'점수: 정답 1개에 Lv1 10점 · Lv2 20점 · Lv3 30점 · Lv4 40점, 단답형은 +5점. 3문제 연속 정답부터 콤보 +5점. 세트 정답률 80% 이상 +30점, 30문제 모두 정답 +100점, 그날 첫 세트를 끝내면 출석 +10점. 오답 노트에서 맞히면 문제마다 +5점.')
+    )),
+    teacherBox(st));
+}
+
+function teacherBox(st){
+  var confirmDel=false;
+  var delBtn=h('button',{class:'btn danger',onclick:function(){
+    if(!confirmDel){confirmDel=true;delBtn.textContent='한 번 더 누르면 '+st.name+' 기록이 모두 지워져요';return}
+    S.students=S.students.filter(function(x){return x.id!==st.id});save();home();}},'학생 지우기');
+  var seg=h('div',{class:'seg'},[1,2,3,4].map(function(n){return h('button',{'aria-pressed':String(n===st.level),onclick:function(){if(st.cur&&!st.cur.done){st.cur=null}st.level=n;save();toast('난이도를 Lv'+n+'로 바꿨어요.');dash()}},'Lv'+n,h('br'),LV[n].name)}));
+  var vsel=null;
+  if(voices.length){
+    vsel=h('select',{class:'input',id:'voice',onchange:function(){S.voice=vsel.value;save();speak('Welcome to the Golden Bell quiz.')}},
+      h('option',{value:''},'자동 선택 (가장 자연스러운 음성)'),
+      voices.map(function(v){return h('option',{value:v.name,selected:S.voice===v.name},v.name+' ('+v.lang+')')}));
+  }
+  return h('details',{class:'card'},h('summary',{},'선생님·부모님 설정'),h('div',{class:'stack'},
+    h('div',{class:'field'},h('label',{},'난이도 직접 바꾸기'),seg,h('p',{class:'small muted'},'바꾸면 풀던 세트는 없어지고 새 난이도로 시작해요.')),
+    vsel?h('div',{class:'field'},h('label',{for:'voice'},'문제 읽어 주기 음성'),vsel):null,
+    h('div',{},delBtn)));
+}
+
+/* ---------- quiz ---------- */
+function startSet(kind){
+  var st=stu(); var ids=buildSet(st,st.level);
+  if(ids.length<10){toast('이 난이도의 문제가 부족해요. 문제 만들기 탭에서 새 문제를 만들어 주세요.');return}
+  st.cur={date:today(),kind:kind,level:st.level,ids:ids,i:0,ans:[],combo:0,maxCombo:0,pts:0,done:false};
+  save(); quiz();
+}
+
+function quiz(){
+  var st=stu(), cur=st.cur; if(!cur)return dash();
+  if(cur.i>=cur.ids.length)return finishSet();
+  var q=qById(cur.ids[cur.i]);
+  if(!q){cur.ids.splice(cur.i,1);save();return quiz()}
+  renderQuestion({
+    st:st,q:q,idx:cur.i,total:cur.ids.length,level:cur.level,combo:cur.combo,label:cur.kind==='daily'?'오늘의 30문제':'추가 세트',
+    onAnswer:function(ok,given){
+      var pts=0;
+      if(ok){cur.combo++; cur.maxCombo=Math.max(cur.maxCombo,cur.combo); pts=BASE[cur.level]+(q.t==='s'?5:0)+(cur.combo>=3?5:0)}
+      else{cur.combo=0; var w=st.wrong[q.id]; st.wrong[q.id]={n:(w?w.n:0)+1,d:today()}}
+      cur.pts+=pts; st.points+=pts;
+      cur.ans.push({id:q.id,ok:ok,given:given,pts:pts});
+      var s=st.seen[q.id]; st.seen[q.id]={n:(s?s.n:0)+1,last:Date.now()};
+      var c=st.cat[q.c]||{ok:0,n:0}; c.n++; if(ok)c.ok++; st.cat[q.c]=c;
+      st.bestCombo=Math.max(st.bestCombo||0,cur.combo);
+      save(); return {pts:pts,combo:cur.combo};
+    },
+    onNext:function(){cur.i++;save();quiz()},
+    onQuit:function(){dash()}
+  });
+}
+
+function renderQuestion(o){
+  var q=o.q, answered=false;
+  var fbBox=h('div');
+  var head=h('div',{class:'qhead'},
+    h('span',{class:'chip num'},(o.idx+1)+' / '+o.total),
+    h('span',{class:'chip'},'Lv'+o.level+' '+LV[o.level].name),
+    h('span',{class:'chip'},CATS[q.c]),
+    o.combo>=2?h('span',{class:'chip brass'},'🔥 '+o.combo+'연속'):null);
+  var qtext=h('p',{class:'qtext',lang:'en'},q.q);
+  var meta=h('div',{class:'qmeta'},
+    h('button',{class:'btn ghost',style:'min-height:40px;padding:6px 12px',onclick:function(){speak(q.q)},'aria-label':'문제 읽어 주기'},'🔊 듣기'),
+    h('span',{class:'tag'},q.t==='m'?'사지선다':'단답형 · '+wordHint(q)),
+    q.src==='claude'?h('span',{class:'tag'},'Claude가 만든 문제'):null);
+  var area;
+  function done(ok,given){
+    if(answered)return; answered=true;
+    var r=o.onAnswer(ok,given);
+    fbBox.appendChild(feedback(q,ok,given,r,o));
+    var nb=fbBox.querySelector('.next'); if(nb)nb.focus();
+  }
+  if(q.t==='m'){
+    var letters='ABCD', opts=shuffle(q.o.slice());
+    area=h('div',{class:'opts'},opts.map(function(op,i){
+      return h('button',{class:'opt',lang:'en',onclick:function(e){
+        var ok=op===q.a[0];
+        [].forEach.call(area.children,function(b,j){b.disabled=true; if(opts[j]===q.a[0])b.classList.add('right')});
+        if(!ok)e.currentTarget.classList.add('wrong');
+        done(ok,op);
+      }},h('span',{class:'k'},letters[i]),h('span',{},op));
+    }));
+  } else {
+    var inp=h('input',{id:'sa',type:'text',autocapitalize:'off',autocomplete:'off',autocorrect:'off',spellcheck:'false',enterkeyhint:'done',placeholder:'영어로 답을 써요','aria-label':'답 쓰기',lang:'en'});
+    var sub=h('button',{class:'btn primary block',type:'submit'},'정답 확인');
+    area=h('form',{class:'answerboard',onsubmit:function(e){e.preventDefault(); if(answered)return;
+        if(!inp.value.trim()){inp.focus();toast('답을 쓰고 눌러 주세요. 모르면 "모르겠어요"를 눌러요.');return}
+        var ok=gradeSA(q,inp.value); inp.readOnly=true; inp.classList.add(ok?'right':'wrong'); sub.disabled=true; skip.disabled=true; done(ok,inp.value)}},
+      inp,
+      h('p',{class:'rule'},'고유명사는 대문자로 시작 · 보통 단어는 소문자 · 숫자는 숫자로 · a/an/the 없이'),
+      sub);
+    var skip=h('button',{class:'linkbtn',type:'button',onclick:function(){if(answered)return;inp.readOnly=true;sub.disabled=true;skip.disabled=true;done(false,'')}},'모르겠어요');
+    area.appendChild(skip);
+    setTimeout(function(){try{inp.focus({preventScroll:true})}catch(e){}},50);
+  }
+  mount(topbar(o.st,o.onQuit),head,
+    h('div',{class:'progress'},h('i',{style:'width:'+Math.round(o.idx/o.total*100)+'%'})),
+    h('div',{class:'board'},qtext,meta,area,fbBox));
+}
+function wordHint(q){var n=q.a[0].split(/\s+/).length; if(/^-?[\d.,−-]+$/.test(q.a[0]))return '숫자'; return n===1?'1단어':n+'단어'}
+
+function diffView(given,ans){
+  var w=h('span',{class:'diff'});
+  for(var i=0;i<Math.max(given.length,ans.length);i++){
+    var ch=given[i]; if(ch===undefined)break;
+    w.appendChild(h('span',{class:ch!==ans[i]?'x':''},ch===' '?' ':ch));
+  }
+  return w;
+}
+
+function feedback(q,ok,given,r,o){
+  var box=h('div',{class:'fb '+(ok?'ok':'no')});
+  box.appendChild(h('div',{class:'spread'},h('span',{class:'v'},ok?'정답이에요!':'아쉬워요'),r&&r.pts?h('span',{class:'combo num'},'+'+r.pts+'점'+(r.combo>=3?' · 🔥'+r.combo+'연속':'')):null));
+  if(!ok){
+    box.appendChild(h('div',{},h('span',{class:'small muted'},'정답 '),h('span',{class:'ans',lang:'en'},q.a[0]),q.a.length>1?h('span',{class:'small muted'},'  (또는 '+q.a.slice(1).join(', ')+')'):null));
+    if(q.t==='s'&&given.trim()){
+      box.appendChild(h('div',{},h('span',{class:'small muted'},'내 답 '),h('span',{class:'ans',lang:'en'},diffView(given.trim(),q.a[0]))));
+      var hint=hintFor(q,given); if(hint)box.appendChild(h('p',{class:'small'},hint));
+    }
+  }
+  box.appendChild(h('p',{},q.e));
+  var ex=h('button',{class:'linkbtn',type:'button',onclick:function(){
+    if(S.excluded[q.id]){delete S.excluded[q.id];ex.textContent='이 문제가 틀렸다면 다음부터 빼기';toast('다시 나오게 했어요.')}
+    else{S.excluded[q.id]=1;ex.textContent='다음부터 빼기로 했어요 (되돌리기)';toast('이 문제는 다음부터 나오지 않아요.')}
+    save()}},'이 문제가 틀렸다면 다음부터 빼기');
+  box.appendChild(h('div',{class:'row'},h('button',{class:'btn primary next',style:'flex:1',onclick:o.onNext},o.idx+1>=o.total?'결과 보기':'다음 문제 →'),
+    h('button',{class:'btn ghost',onclick:function(){speak(q.a[0])},'aria-label':'정답 듣기'},'🔊 정답')));
+  box.appendChild(ex);
+  return box;
+}
+
+/* ---------- finish ---------- */
+function finishSet(){
+  var st=stu(), cur=st.cur, t=today();
+  var correct=cur.ans.filter(function(a){return a.ok}).length, total=cur.ans.length;
+  var saCorrect=cur.ans.filter(function(a){var q=qById(a.id);return a.ok&&q&&q.t==='s'}).length;
+  var saTotal=cur.ans.filter(function(a){var q=qById(a.id);return q&&q.t==='s'}).length;
+  var pct=total?correct/total:0, bonus=[], newB=[];
+  if(pct>=PASS)bonus.push(['정답률 80% 이상',30]);
+  if(correct===total&&total>=SET_SIZE)bonus.push(['퍼펙트',100]);
+  var firstToday = st.lastDay!==t;
+  if(firstToday){
+    st.streak = st.lastDay===yesterday()? st.streak+1 : 1; st.lastDay=t; bonus.push(['오늘 출석',10]);
+  }
+  if(cur.kind==='daily')st.dailyDone=t;
+  var bsum=bonus.reduce(function(s,b){return s+b[1]},0); st.points+=bsum;
+  var up=false, fromLv=cur.level;
+  if(pct>=PASS && cur.level===st.level && st.level<4){st.level++;up=true}
+  function award(id){if(!st.badges[id]){st.badges[id]=t;newB.push(id)}}
+  award('first');
+  if(correct===total&&total>=SET_SIZE)award('perfect');
+  if(saTotal>=SA_N&&saCorrect===saTotal)award('spell21');
+  if(cur.maxCombo>=10)award('combo10');
+  if(st.streak>=3)award('streak3'); if(st.streak>=7)award('streak7'); if(st.streak>=30)award('streak30');
+  if(st.level>=2)award('lv2'); if(st.level>=3)award('lv3'); if(st.level>=4)award('lv4');
+  if(cur.level===4&&pct>=PASS)award('bell');
+  for(var c in st.cat){if(st.cat[c].ok>=30)award('cat30')}
+  st.history.push({date:t,level:cur.level,correct:correct,total:total,points:cur.pts+bsum,kind:cur.kind,up:up});
+  st.last={correct:correct,total:total,pct:pct,setPts:cur.pts,bonus:bonus,up:up,from:fromLv,to:st.level,newB:newB,wrongIds:cur.ans.filter(function(a){return !a.ok}).map(function(a){return a.id}),level:cur.level};
+  cur.done=true; save();
+  result();
+}
+
+function result(){
+  var st=stu(), r=st.last; if(!r)return dash();
+  var lines=h('div',{class:'lines num'},
+    h('div',{},h('span',{},'문제 점수'),h('b',{},'+'+r.setPts)),
+    r.bonus.map(function(b){return h('div',{},h('span',{},b[0]),h('b',{},'+'+b[1]))}),
+    h('div',{},h('span',{},'지금 총점'),h('b',{},st.points.toLocaleString()+'점')));
+  var badgeEls=r.newB.map(function(id){var b=BADGES.filter(function(x){return x[0]===id})[0];return h('div',{class:'badge'},h('span',{class:'ic'},b[1]),h('b',{},b[2]),h('span',{},b[3]))});
+  var wrongList=h('div',{class:'qlist'},r.wrongIds.map(function(id){var q=qById(id);return q?qItem(q):null}));
+  var pctTxt=Math.round(r.pct*100);
+  mount(topbar(st,function(){tab='today';dash()}),
+    h('div',{class:'stack'},
+      h('div',{class:'card stack',style:'align-items:center;text-align:center'},
+        r.pct>=PASS?h('div',{class:'bell-anim'},bell()):null,
+        h('p',{class:'muted'},'Lv'+r.level+' '+LV[r.level].name+' 세트 결과'),
+        h('div',{class:'bigscore num'},r.correct+' / '+r.total),
+        h('p',{},'정답률 '+pctTxt+'% · '+(r.pct>=PASS?'승급 기준 80%를 넘었어요!':'80%까지 '+Math.max(0,Math.ceil(PASS*r.total)-r.correct)+'문제 더 맞히면 돼요.'))),
+      r.up?h('div',{class:'lvup'},h('span',{style:'font-size:40px'},'🎉'),h('div',{},h('h2',{},'Lv'+r.to+' '+LV[r.to].name+'로 승급!'),h('p',{},'다음 세트부터 '+LV[r.to].desc+' 문제가 나와요.'))):null,
+      h('div',{class:'card'},lines),
+      badgeEls.length?h('div',{class:'stack'},h('h3',{},'새 배지'),h('div',{class:'badges'},badgeEls)):null,
+      r.wrongIds.length?h('div',{class:'stack'},
+        h('div',{class:'spread'},h('h3',{},'틀린 문제 '+r.wrongIds.length+'개'),h('button',{class:'btn brass',onclick:function(){startReview(r.wrongIds)}},'바로 다시 풀기')),
+        wrongList):h('p',{class:'notice'},'틀린 문제가 하나도 없어요!'),
+      h('button',{class:'btn primary block',onclick:function(){tab='today';dash()}},'처음 화면으로')));
+}
+
+function qItem(q,extra){
+  return h('div',{class:'qitem stack',style:'gap:4px'},
+    h('div',{class:'row small muted'},h('span',{},CATS[q.c]+' · Lv'+q.l),extra||null),
+    h('p',{class:'q',lang:'en'},q.q),
+    h('p',{},h('span',{class:'small muted'},'정답 '),h('span',{class:'a',lang:'en'},q.a[0])),
+    h('p',{class:'small'},q.e));
+}
+
+/* ---------- review (wrong notebook) ---------- */
+var RV=null;
+function startReview(ids){
+  var st=stu(); var list=(ids||Object.keys(st.wrong)).filter(function(id){return st.wrong[id]&&qById(id)});
+  if(!list.length){toast('다시 풀 오답이 없어요.');return}
+  RV={ids:shuffle(list.slice()),i:0,ok:0,pts:0,combo:0};
+  review();
+}
+function review(){
+  var st=stu();
+  if(RV.i>=RV.ids.length){
+    var n=RV.ids.length;
+    if(st.cleared>=10)award2(st,'review10'); if(st.cleared>=50)award2(st,'review50'); save();
+    mount(topbar(st,function(){tab='wrong';dash()}),h('div',{class:'stack'},
+      h('div',{class:'card stack',style:'text-align:center;align-items:center'},h('p',{class:'muted'},'오답 다시 풀기 결과'),h('div',{class:'bigscore num'},RV.ok+' / '+n),
+        h('p',{},'맞힌 '+RV.ok+'문제는 오답 노트에서 졸업했어요. +'+RV.pts+'점')),
+      Object.keys(st.wrong).length?h('button',{class:'btn brass block',onclick:function(){startReview(null)}},'남은 오답 '+Object.keys(st.wrong).length+'문제 또 풀기'):h('p',{class:'notice'},'오답 노트가 비었어요. 멋져요!'),
+      h('button',{class:'btn primary block',onclick:function(){tab='today';dash()}},'처음 화면으로')));
+    return;
+  }
+  var q=qById(RV.ids[RV.i]);
+  renderQuestion({st:st,q:q,idx:RV.i,total:RV.ids.length,level:q.l,combo:RV.combo,
+    onAnswer:function(ok){
+      var pts=0;
+      if(ok){RV.ok++;RV.combo++;pts=5;delete st.wrong[q.id];st.cleared=(st.cleared||0)+1}
+      else{RV.combo=0;var w=st.wrong[q.id]||{n:0};w.n++;w.d=today();st.wrong[q.id]=w}
+      RV.pts+=pts; st.points+=pts; save(); return {pts:pts,combo:0};
+    },
+    onNext:function(){RV.i++;review()},
+    onQuit:function(){tab='wrong';dash()}});
+}
+function award2(st,id){if(!st.badges[id]){st.badges[id]=today();toast('새 배지: '+BADGES.filter(function(b){return b[0]===id})[0][2])}}
+
+function wrongTab(st){
+  var ids=Object.keys(st.wrong).filter(function(id){return qById(id)});
+  if(!ids.length)return h('div',{class:'stack'},h('div',{class:'card stack'},h('h2',{},'오답 노트가 비어 있어요'),h('p',{class:'muted'},'세트에서 틀린 문제가 여기에 모여요. 다시 풀어서 맞히면 노트에서 졸업해요. 지금까지 졸업한 문제는 '+(st.cleared||0)+'개예요.')));
+  var byCat={}; ids.forEach(function(id){var c=qById(id).c;byCat[c]=(byCat[c]||0)+1});
+  ids.sort(function(a,b){return st.wrong[b].n-st.wrong[a].n});
+  return h('div',{class:'stack'},
+    h('div',{class:'card stack'},
+      h('div',{class:'spread'},h('h2',{},'오답 '+ids.length+'문제'),h('span',{class:'chip'},'졸업 '+(st.cleared||0)+'개')),
+      h('p',{class:'small muted'},'다시 풀어서 맞히면 노트에서 빠지고 5점을 받아요. 또 틀리면 노트에 남아요.'),
+      h('button',{class:'btn brass block',onclick:function(){startReview(null)}},'전체 다시 풀기'),
+      h('div',{class:'row'},Object.keys(byCat).map(function(c){return h('button',{class:'chip',style:'min-height:40px',onclick:function(){startReview(ids.filter(function(id){return qById(id).c===c}))}},CATS[c]+' '+byCat[c])}))),
+    h('details',{},h('summary',{},'정답과 해설 보기'),h('div',{class:'qlist'},ids.map(function(id){var w=st.wrong[id];return qItem(qById(id),h('span',{},'· '+w.n+'번 틀림'))}))));
+}
+
+/* ---------- records ---------- */
+function recTab(st){
+  var catBars=h('div',{class:'bars'},CAT_KEYS.map(function(c){var s=st.cat[c]||{ok:0,n:0};var p=s.n?s.ok/s.n:0;
+    return h('div',{class:'bar'},h('span',{},CATS[c]),h('div',{class:'t'},h('i',{style:'width:'+Math.round(p*100)+'%'})),h('span',{class:'num small'},s.n?Math.round(p*100)+'% ('+s.n+')':'—'))}));
+  var rows=st.history.slice(-30).reverse();
+  var table=rows.length?h('div',{class:'tablewrap'},h('table',{class:'num'},h('thead',{},h('tr',{},h('th',{},'날짜'),h('th',{},'세트'),h('th',{},'난이도'),h('th',{},'정답'),h('th',{},'점수'),h('th',{},''))),
+    h('tbody',{},rows.map(function(r){return h('tr',{},h('td',{},r.date.slice(5)),h('td',{},r.kind==='daily'?'오늘':'추가'),h('td',{},'Lv'+r.level),h('td',{},r.correct+'/'+r.total+' ('+Math.round(r.correct/r.total*100)+'%)'),h('td',{},'+'+r.points),h('td',{},r.up?'승급':''))})))):h('p',{class:'muted'},'아직 끝낸 세트가 없어요.');
+  return h('div',{class:'stack'},
+    h('div',{class:'card stack'},h('h2',{},'배지 '+Object.keys(st.badges).length+' / '+BADGES.length),
+      h('div',{class:'badges'},BADGES.map(function(b){var got=st.badges[b[0]];return h('div',{class:'badge'+(got?'':' off')},h('span',{class:'ic'},b[1]),h('b',{},b[2]),h('span',{},got?got+' 획득':b[3]))}))),
+    h('div',{class:'card stack'},h('h2',{},'칭호'),h('div',{class:'lines num'},TITLES.map(function(t){return h('div',{},h('span',{},(st.points>=t[0]?'✓ ':'')+t[1]),h('span',{class:'muted'},t[0].toLocaleString()+'점'))}))),
+    h('div',{class:'card stack'},h('h2',{},'분야별 정답률'),catBars,h('p',{class:'small muted'},'세트에서 처음 푼 답으로 계산해요. 가장 약한 분야를 오답 노트에서 골라 다시 풀어 보세요.')),
+    h('div',{class:'card stack'},h('h2',{},'최근 세트'),table));
+}
+
+/* ---------- question bank + Claude ---------- */
+var sampleFn=null, claudeState=IS_CLAUDE?'wait':'none', genCtl=null, genLv=null;
+if(IS_CLAUDE){
+  window.claude.use('sample').then(function(s){sampleFn=s;claudeState=s?'ready':'none';if(tab==='bank'&&stu()&&!genCtl)dash()},function(){claudeState='none'});
+}
+function canGen(){return (claudeState==='ready')||(!IS_CLAUDE&&!!S.apiKey)}
+
+function bankTab(st){
+  if(genLv==null)genLv=st.level;
+  var counts=[1,2,3,4].map(function(l){var all=allQ().filter(function(q){return q.l===l&&!S.excluded[q.id]});return {l:l,n:all.length,g:all.filter(function(q){return q.src==='claude'}).length,u:unseenCount(st,l)}});
+  var log=h('p',{class:'genlog',id:'genlog','aria-live':'polite'});
+  var seg=h('div',{class:'seg'},[1,2,3,4].map(function(n){return h('button',{'aria-pressed':String(n===genLv),onclick:function(){genLv=n;[].forEach.call(seg.children,function(b,i){b.setAttribute('aria-pressed',String(i+1===n))})}},'Lv'+n,h('br'),LV[n].name)}));
+  var go=h('button',{class:'btn brass block',disabled:!canGen()||!!genCtl,onclick:function(){generate(genLv,go,stop,log)}},'Claude로 새 문제 30개 만들기');
+  var stop=h('button',{class:'btn ghost block',hidden:!genCtl,onclick:function(){if(genCtl)genCtl.abort()}},'멈추기');
+  var how;
+  if(claudeState==='ready') how=h('p',{class:'small muted'},'처음 한 번 Claude 사용 허락 창이 떠요. 문제를 만들 때 보는 사람의 Claude 사용량이 쓰여요. 30문제를 만드는 데 1~2분쯤 걸려요.');
+  else if(claudeState==='wait') how=h('p',{class:'small muted'},'Claude 연결을 확인하는 중이에요…');
+  else if(IS_CLAUDE) how=h('div',{class:'notice'},'이 화면에서는 Claude를 쓸 수 없어요. claude.ai나 Claude 앱에서 이 학습실을 열면 새 문제를 만들 수 있어요. 문제 은행 문제는 그대로 풀 수 있어요.');
+  else how=apiKeyBox();
+  var excl=Object.keys(S.excluded).length;
+  var gen=(S.extra||[]).length;
+  return h('div',{class:'stack'},
+    h('div',{class:'card stack'},h('h2',{},'난이도별 문제 수'),h('p',{class:'small muted'},'큰 숫자는 전체 문제, 아래는 '+st.name+' 학생이 아직 안 푼 문제예요.'),
+      h('div',{class:'levels num'},counts.map(function(c){return h('div',{},h('span',{class:'small muted'},'Lv'+c.l+' '+LV[c.l].name),h('b',{},String(c.n)),h('span',{class:'small'},'안 푼 '+c.u))})),
+      h('p',{class:'small muted'},'기본 문제 은행 360문제(난이도마다 90문제)에 Claude가 만든 문제 '+gen+'개가 더해져 있어요. 세트는 안 푼 문제부터 고르고, 9개 분야에서 골고루 사지선다 9문제와 단답형 21문제를 뽑아요.')),
+    h('div',{class:'card stack'},h('h2',{},'새 문제 만들기'),
+      h('p',{class:'small'},'고른 난이도로 9개 분야 30문제(사지선다 9 · 단답형 21)를 새로 만들어 이 기기의 문제 은행에 더해요. 모든 학생이 함께 써요.'),
+      seg,how,go,stop,log,
+      h('p',{class:'small muted'},'Claude가 만든 문제에는 "Claude가 만든 문제" 표시가 붙어요. 시사 문제는 Claude가 아는 시점까지의 사실이라 최신 소식과 다를 수 있어요. 이상한 문제는 풀 때 "다음부터 빼기"를 눌러 주세요.')),
+    excl?h('div',{class:'card stack'},h('p',{},'뺀 문제 '+excl+'개'),h('button',{class:'btn ghost',onclick:function(){S.excluded={};save();toast('뺀 문제를 모두 다시 넣었어요.');dash()}},'뺀 문제 모두 되돌리기')):null);
+}
+
+function apiKeyBox(){
+  var inp=h('input',{class:'input',id:'apikey',type:'password',autocomplete:'off',placeholder:'sk-ant-...',value:S.apiKey||''});
+  return h('div',{class:'stack',style:'gap:8px'},
+    h('div',{class:'field'},h('label',{for:'apikey'},'내 Anthropic API 키'),inp),
+    h('div',{class:'row'},
+      h('button',{class:'btn ghost',onclick:function(){S.apiKey=inp.value.trim();save();toast(S.apiKey?'키를 이 기기에 저장했어요.':'키를 지웠어요.');dash()}},'저장'),
+      S.apiKey?h('button',{class:'btn ghost',onclick:function(){S.apiKey='';save();dash()}},'키 지우기'):null),
+    h('p',{class:'small muted'},'키는 이 기기의 브라우저에만 저장되고 Anthropic API로만 보내요. console.anthropic.com에서 만들 수 있어요. 사용한 만큼 요금이 나와요.'));
+}
+
+function buildPrompt(level){
+  var existing=allQ().filter(function(q){return q.l===level}).map(function(q){return '- '+q.q.slice(0,90)}).slice(-220).join('\n');
+  return 'You are writing quiz questions for Korean students in grade 6 of elementary school and grade 1 of middle school who are preparing for an English "Golden Bell" general-knowledge quiz contest.\n'+
+  'Write exactly 30 NEW questions for difficulty level '+level+' of 4: '+LV_EN[level]+'.\n'+
+  'Mix: exactly 9 multiple-choice questions (one for each category) and exactly 21 short-answer questions (2 or 3 per category).\n'+
+  'Categories (use these codes): cur = current affairs and world issues, lit = literature and famous stories, his = history (Korean and world), sci = science, mat = math, art = art and music, spo = sports, geo = geography, peo = famous people.\n'+
+  'Rules:\n'+
+  '- Simple, clear English for this level. Exactly one correct answer. Use only facts that are certain and well established; skip anything you are not sure about. For cur, use stable, widely known facts, say the year in the question, and avoid predictions or very recent news.\n'+
+  '- Short answers must be 1 to 3 words, written exactly as they must be spelled. No "a", "an" or "the". Proper nouns start with a capital letter (Paris, Jupiter); ordinary words are all lowercase (gravity, honey); numbers use digits (17). If a different spelling is equally correct, add it to "alts". When the expected form is not obvious, end the question with a hint in parentheses such as (full name), (last name), (two words) or (number).\n'+
+  '- Multiple choice: exactly 4 different options; "answer" must be exactly one of them; wrong options should be plausible.\n'+
+  '- "ex": one or two short sentences in Korean, polite 해요체 style, explaining the answer to a child (include the Korean name of the answer).\n'+
+  '- Do not repeat or closely copy these existing questions:\n'+existing+'\n\n'+
+  'Reply with only a JSON array of 30 objects like {"cat":"sci","type":"short","q":"Which planet is known as the Red Planet?","answer":"Mars","alts":[],"options":[],"ex":"붉은 행성은 화성(Mars)이에요."}. Use "type":"mc" with 4 "options" for multiple choice.';
+}
+
+function validate(items,level){
+  var have={}; allQ().forEach(function(q){have[q.q.toLowerCase().replace(/\W+/g,'')]=1});
+  var out=[];
+  (Array.isArray(items)?items:[]).forEach(function(x){
+    if(!x||typeof x!=='object')return;
+    var c=String(x.cat||''), t=x.type==='mc'?'m':x.type==='short'?'s':'', q=String(x.q||'').trim(), a=String(x.answer||'').trim(), e=String(x.ex||'').trim();
+    if(!CATS[c]||!t||q.length<8||!a||!e)return;
+    var k=q.toLowerCase().replace(/\W+/g,''); if(have[k])return;
+    var obj={id:'g'+hash(q),l:level,c:c,t:t,q:q,a:[a],o:null,e:e,src:'claude',added:today()};
+    if(t==='m'){var o=(x.options||[]).map(function(s){return String(s).trim()}).filter(Boolean);
+      if(o.length!==4||o.indexOf(a)<0||new Set(o).size!==4)return; obj.o=o;}
+    else{ if(a.split(/\s+/).length>4||/^(the|a|an)\s/i.test(a))return;
+      (x.alts||[]).forEach(function(s){s=String(s).trim(); if(s&&obj.a.indexOf(s)<0&&!/^(the|a|an)\s/i.test(s))obj.a.push(s)}); }
+    have[k]=1; out.push(obj);
+  });
+  return out;
+}
+
+function generate(level,go,stop,log){
+  genCtl=new AbortController(); go.disabled=true; stop.hidden=false;
+  log.textContent='Claude가 생각하는 중이에요… (1~2분 걸려요)';
+  var prompt=buildPrompt(level);
+  var p;
+  if(sampleFn){
+    p=sampleFn.json(prompt,{signal:genCtl.signal,cache:false,onText:function(u){var n=(u.text.match(/"q"\s*:/g)||[]).length;log.textContent='문제를 쓰는 중이에요… '+n+' / 30'}});
+  } else {
+    p=fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:genCtl.signal,
+      headers:{'content-type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:16000,messages:[{role:'user',content:prompt}]})})
+    .then(function(r){return r.json().then(function(j){if(!r.ok)throw {code:'api',message:(j&&j.error&&j.error.message)||('HTTP '+r.status)};return j})})
+    .then(function(j){var txt=(j.content||[]).filter(function(b){return b.type==='text'}).map(function(b){return b.text}).join('');
+      var s=txt.indexOf('['),e=txt.lastIndexOf(']'); if(s<0||e<0)throw {code:'invalid_json'}; return JSON.parse(txt.slice(s,e+1))});
+  }
+  p.then(function(items){
+    var got=validate(items,level);
+    S.extra=(S.extra||[]).concat(got); resetQMap(); save();
+    genCtl=null;
+    var m=got.filter(function(q){return q.t==='m'}).length;
+    toast('Lv'+level+' 새 문제 '+got.length+'개를 더했어요.');
+    dash();
+    var l=document.getElementById('genlog'); if(l)l.textContent='새 문제 '+got.length+'개(사지선다 '+m+' · 단답형 '+(got.length-m)+')를 더했어요.'+(got.length<30?' 형식이 맞지 않거나 겹치는 문제는 뺐어요.':'');
+  },function(err){
+    genCtl=null; go.disabled=!canGen(); stop.hidden=true;
+    var c=err&&err.code, msg={cancelled:'멈췄어요.',not_granted:'Claude 사용을 허락하지 않아서 만들 수 없어요.',rate_limited:'Claude 사용량이 많아요. 잠시 뒤에 다시 눌러 주세요.',invalid_json:'답을 읽지 못했어요. 다시 눌러 주세요.',session_expired:'Claude에 다시 로그인해 주세요.',sampling_disabled:'이 계정에서는 Claude 문제 만들기를 쓸 수 없어요.',refused:'Claude가 이 요청을 거절했어요.'}[c];
+    if(c==='api')msg='API 오류: '+err.message+'. 키를 확인해 주세요.';
+    if(!msg&&err&&err.name==='AbortError')msg='멈췄어요.';
+    if(!msg&&err&&err.name==='TypeError')msg='인터넷 연결을 확인해 주세요.';
+    if(c==='not_granted'||c==='sampling_disabled'){claudeState='none'}
+    log.textContent=msg||'문제를 만들지 못했어요. 잠시 뒤에 다시 눌러 주세요.';
+  });
+}
+
+/* ---------- boot ---------- */
+if(S.activeId&&stu())dash(); else home();
+window.__GB={buildSet:buildSet,gradeSA:gradeSA,validate:validate,S:function(){return S},BUILTIN:BUILTIN,hintFor:hintFor,finishSet:finishSet,newStudent:newStudent,qById:qById};
+})();
+</script>
+<script>if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(function(){})}</script>
+</body></html>
