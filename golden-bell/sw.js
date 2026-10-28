@@ -1,6 +1,6 @@
 // Golden Bell offline support. Its scope (/golden-bell/) is narrower than the site's root
 // service worker, so this one controls the quiz pages. Network first, so updates arrive at once.
-const VERSION = "golden-bell-v2";
+const VERSION = "golden-bell-v3";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 const CDN = ["cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
 
