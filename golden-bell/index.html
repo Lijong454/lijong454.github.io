@@ -677,16 +677,24 @@ function buildSet(st,level){
 function unseenCount(st,level){return allQ().filter(function(q){return q.l===level&&!S.excluded[q.id]&&!st.seen[q.id]}).length}
 
 /* ---------- grading ---------- */
+/* 'exact' = 글자 그대로 일치, 'case' = 보통 단어인데 대소문자만 다름(정답 인정 + 오답 노트), false = 오답.
+   고유명사(정답이 대문자로 시작)와 숫자·기호 답은 글자 그대로 맞아야 해요. */
+function isProper(q){return /^[A-Z]/.test(q.a[0])}
 function gradeSA(q,given){
   var g=given.replace(/^\s+|\s+$/g,'');
-  return q.a.indexOf(g)>=0;
+  if(q.a.indexOf(g)>=0)return 'exact';
+  if(!isProper(q)&&/[a-z]/i.test(g)){
+    var lg=g.toLowerCase();
+    for(var i=0;i<q.a.length;i++){if(!/^[A-Z]/.test(q.a[i])&&q.a[i].toLowerCase()===lg)return 'case'}
+  }
+  return false;
 }
 function lev(a,b){var m=a.length,n=b.length,d=[];for(var i=0;i<=m;i++){d[i]=[i]}for(var j=0;j<=n;j++){d[0][j]=j}
   for(i=1;i<=m;i++)for(j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
 function hintFor(q,given){
   var g=given.trim(), a=q.a[0];
   if(!g) return '답을 쓰지 않았어요.';
-  for(var i=0;i<q.a.length;i++){ if(q.a[i].toLowerCase()===g.toLowerCase()) return '철자는 맞지만 대문자·소문자가 달라요. 대회에서는 이것도 오답이에요.'; }
+  for(var i=0;i<q.a.length;i++){ if(q.a[i].toLowerCase()===g.toLowerCase()) return '철자는 맞지만 대문자·소문자가 달라요. 사람·나라·도시 같은 고유명사는 대문자까지 정확해야 정답이에요.'; }
   if(/^(the|a|an) /i.test(g)) return 'a / an / the 없이 써야 해요.';
   var best=99; q.a.forEach(function(x){best=Math.min(best,lev(x.toLowerCase(),g.toLowerCase()))});
   if(best<=2) return '거의 맞았어요! 철자가 '+best+'글자 달라요.';
@@ -815,7 +823,7 @@ function todayTab(st){
   var low = un<SET_SIZE ? h('div',{class:'notice'},'Lv'+st.level+'에서 아직 안 푼 문제가 '+un+'개 남았어요. "문제 만들기" 탭에서 Claude로 새 문제를 더 만들 수 있어요. 새 문제가 없으면 오래전에 푼 문제부터 다시 나와요.') : null;
   return h('div',{class:'stack'},stage,ctas,low,
     h('details',{class:'card'},h('summary',{},'채점 규칙과 점수'),h('div',{class:'stack small'},
-      h('p',{},'단답형은 철자가 정답과 똑같아야 맞아요. 대문자·소문자도 정확해야 해요. 답 앞뒤의 빈칸만 지워서 채점해요.'),
+      h('p',{},'단답형은 철자가 정답과 똑같아야 맞아요. 사람·나라·도시 같은 고유명사는 대문자·소문자까지 정확해야 해요. 보통 단어는 대문자·소문자만 다르면 정답으로 치고, 바른 표기를 연습하도록 오답 노트에 넣어요. 답 앞뒤의 빈칸만 지워서 채점해요.'),
       h('p',{},'쓰는 법: 나라·도시·사람 이름 같은 고유명사는 대문자로 시작해요(Paris). 보통 단어는 소문자로 써요(gravity). 숫자는 아라비아 숫자로 써요(17). a / an / the는 쓰지 않아요.'),
       h('p',{},'점수: 정답 1개에 Lv1 10점 · Lv2 20점 · Lv3 30점 · Lv4 40점, 단답형은 +5점. 3문제 연속 정답부터 콤보 +5점. 세트 정답률 80% 이상 +30점, 30문제 모두 정답 +100점, 그날 첫 세트를 끝내면 출석 +10점. 오답 노트에서 맞히면 문제마다 +5점.')
     )),
@@ -855,12 +863,13 @@ function quiz(){
   if(!q){cur.ids.splice(cur.i,1);save();return quiz()}
   renderQuestion({
     st:st,q:q,idx:cur.i,total:cur.ids.length,level:cur.level,combo:cur.combo,label:cur.kind==='daily'?'오늘의 30문제':'추가 세트',
-    onAnswer:function(ok,given){
+    onAnswer:function(ok,given,note){
       var pts=0;
       if(ok){cur.combo++; cur.maxCombo=Math.max(cur.maxCombo,cur.combo); pts=BASE[cur.level]+(q.t==='s'?5:0)+(cur.combo>=3?5:0)}
-      else{cur.combo=0; var w=st.wrong[q.id]; st.wrong[q.id]={n:(w?w.n:0)+1,d:today()}}
+      else{cur.combo=0}
+      if(!ok||note==='case'){var w=st.wrong[q.id]; st.wrong[q.id]={n:(w?w.n:0)+1,d:today(),caseOnly:ok}}
       cur.pts+=pts; st.points+=pts;
-      cur.ans.push({id:q.id,ok:ok,given:given,pts:pts});
+      cur.ans.push({id:q.id,ok:ok,given:given,pts:pts,near:note==='case'});
       var s=st.seen[q.id]; st.seen[q.id]={n:(s?s.n:0)+1,last:Date.now()};
       var c=st.cat[q.c]||{ok:0,n:0}; c.n++; if(ok)c.ok++; st.cat[q.c]=c;
       st.bestCombo=Math.max(st.bestCombo||0,cur.combo);
@@ -885,10 +894,10 @@ function renderQuestion(o){
     h('span',{class:'tag'},q.t==='m'?'사지선다':'단답형 · '+wordHint(q)),
     q.src==='claude'?h('span',{class:'tag'},'Claude가 만든 문제'):null);
   var area;
-  function done(ok,given){
+  function done(ok,given,note){
     if(answered)return; answered=true;
-    var r=o.onAnswer(ok,given);
-    fbBox.appendChild(feedback(q,ok,given,r,o));
+    var r=o.onAnswer(ok,given,note);
+    fbBox.appendChild(feedback(q,ok,given,r,o,note));
     var nb=fbBox.querySelector('.next'); if(nb)nb.focus();
   }
   if(q.t==='m'){
@@ -906,9 +915,9 @@ function renderQuestion(o){
     var sub=h('button',{class:'btn primary block',type:'submit'},'정답 확인');
     area=h('form',{class:'answerboard',onsubmit:function(e){e.preventDefault(); if(answered)return;
         if(!inp.value.trim()){inp.focus();toast('답을 쓰고 눌러 주세요. 모르면 "모르겠어요"를 눌러요.');return}
-        var ok=gradeSA(q,inp.value); inp.readOnly=true; inp.classList.add(ok?'right':'wrong'); sub.disabled=true; skip.disabled=true; done(ok,inp.value)}},
+        var gr=gradeSA(q,inp.value), ok=!!gr; inp.readOnly=true; inp.classList.add(ok?'right':'wrong'); sub.disabled=true; skip.disabled=true; done(ok,inp.value,gr==='case'?'case':null)}},
       inp,
-      h('p',{class:'rule'},'고유명사는 대문자로 시작 · 보통 단어는 소문자 · 숫자는 숫자로 · a/an/the 없이'),
+      h('p',{class:'rule'},'고유명사는 대문자까지 정확히 · 보통 단어는 대소문자 상관없이 철자만 정확히 · 숫자는 숫자로 · a/an/the 없이'),
       sub);
     var skip=h('button',{class:'linkbtn',type:'button',onclick:function(){if(answered)return;inp.readOnly=true;sub.disabled=true;skip.disabled=true;done(false,'')}},'모르겠어요');
     area.appendChild(skip);
@@ -929,9 +938,13 @@ function diffView(given,ans){
   return w;
 }
 
-function feedback(q,ok,given,r,o){
+function feedback(q,ok,given,r,o,note){
   var box=h('div',{class:'fb '+(ok?'ok':'no')});
   box.appendChild(h('div',{class:'spread'},h('span',{class:'v'},ok?'정답이에요!':'아쉬워요'),r&&r.pts?h('span',{class:'combo num'},'+'+r.pts+'점'+(r.combo>=3?' · 🔥'+r.combo+'연속':'')):null));
+  if(note==='case'){
+    box.appendChild(h('div',{},h('span',{class:'small muted'},'바른 표기 '),h('span',{class:'ans',lang:'en'},q.a[0])));
+    box.appendChild(h('p',{class:'small'},o.review?'대소문자가 달라서 아직 졸업은 못 해요. 이 단어는 소문자로 써요. 다음에 똑같이 쓰면 졸업해요.':'철자는 맞아서 정답으로 쳤어요. 이 단어는 소문자로 써요. 연습하도록 오답 노트에도 넣어 둘게요.'));
+  }
   if(!ok){
     box.appendChild(h('div',{},h('span',{class:'small muted'},'정답 '),h('span',{class:'ans',lang:'en'},q.a[0]),q.a.length>1?h('span',{class:'small muted'},'  (또는 '+q.a.slice(1).join(', ')+')'):null));
     if(q.t==='s'&&given.trim()){
@@ -954,7 +967,7 @@ function feedback(q,ok,given,r,o){
 function finishSet(){
   var st=stu(), cur=st.cur, t=today();
   var correct=cur.ans.filter(function(a){return a.ok}).length, total=cur.ans.length;
-  var saCorrect=cur.ans.filter(function(a){var q=qById(a.id);return a.ok&&q&&q.t==='s'}).length;
+  var saCorrect=cur.ans.filter(function(a){var q=qById(a.id);return a.ok&&!a.near&&q&&q.t==='s'}).length;
   var saTotal=cur.ans.filter(function(a){var q=qById(a.id);return q&&q.t==='s'}).length;
   var pct=total?correct/total:0, bonus=[], newB=[];
   if(pct>=PASS)bonus.push(['정답률 80% 이상',30]);
@@ -1036,10 +1049,11 @@ function review(){
     return;
   }
   var q=qById(RV.ids[RV.i]);
-  renderQuestion({st:st,q:q,idx:RV.i,total:RV.ids.length,level:q.l,combo:RV.combo,
-    onAnswer:function(ok){
+  renderQuestion({st:st,q:q,idx:RV.i,total:RV.ids.length,level:q.l,combo:RV.combo,review:true,
+    onAnswer:function(ok,given,note){
       var pts=0;
-      if(ok){RV.ok++;RV.combo++;pts=5;delete st.wrong[q.id];st.cleared=(st.cleared||0)+1}
+      if(ok&&note==='case'){RV.combo=0}
+      else if(ok){RV.ok++;RV.combo++;pts=5;delete st.wrong[q.id];st.cleared=(st.cleared||0)+1}
       else{RV.combo=0;var w=st.wrong[q.id]||{n:0};w.n++;w.d=today();st.wrong[q.id]=w}
       RV.pts+=pts; st.points+=pts; save(); return {pts:pts,combo:0};
     },
@@ -1056,7 +1070,7 @@ function wrongTab(st){
   return h('div',{class:'stack'},
     h('div',{class:'card stack'},
       h('div',{class:'spread'},h('h2',{},'오답 '+ids.length+'문제'),h('span',{class:'chip'},'졸업 '+(st.cleared||0)+'개')),
-      h('p',{class:'small muted'},'다시 풀어서 맞히면 노트에서 빠지고 5점을 받아요. 또 틀리면 노트에 남아요.'),
+      h('p',{class:'small muted'},'다시 풀어서 대소문자까지 똑같이 맞히면 노트에서 빠지고 5점을 받아요. 또 틀리면 노트에 남아요.'),
       h('button',{class:'btn brass block',onclick:function(){startReview(null)}},'전체 다시 풀기'),
       h('div',{class:'row'},Object.keys(byCat).map(function(c){return h('button',{class:'chip',style:'min-height:40px',onclick:function(){startReview(ids.filter(function(id){return qById(id).c===c}))}},CATS[c]+' '+byCat[c])}))),
     h('details',{},h('summary',{},'정답과 해설 보기'),h('div',{class:'qlist'},ids.map(function(id){var w=st.wrong[id];return qItem(qById(id),h('span',{},'· '+w.n+'번 틀림'))}))));
