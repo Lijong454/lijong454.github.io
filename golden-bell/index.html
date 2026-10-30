@@ -812,16 +812,160 @@ var BUILTIN = BANK.map(function(r){
   return {id:'b'+hash(r[3]),l:r[0],c:r[1],t:r[2],q:r[3],a:String(r[4]).split('|'),o:isM?r[5]:null,e:isM?r[6]:r[5],src:'bank'};
 });
 
-/* ---------- storage ---------- */
-var KEY='goldenbell.v1', memOnly=false;
+/* ---------- storage ----------
+   1) 이 기기의 브라우저(localStorage)에 바로 저장해요.
+   2) Claude 아티팩트로 열면 내 Claude 계정의 비공개 저장 공간(db)에도 저장해서, 다시 열거나 다른 기기에서 열어도 기록이 남아요.
+      data/users/<내 id>/meta                 학생 목록 순서, 지운 학생, 뺀 문제, 음성
+      data/users/<내 id>/meta/students/<학생> 학생 한 명의 이름·기록
+      data/users/<내 id>/extra-<난이도>        Claude가 만든 문제
+   학생마다 마지막으로 바뀐 시각(upd)을 두고, 두 곳의 기록이 다르면 더 최근 것을 써요. 지운 학생은 deleted 목록에 남겨서 다시 살아나지 않게 해요. */
+var KEY='goldenbell.v1', memOnly=false, SCREEN='home';
 var S = load();
-function blank(){return {students:[],extra:[],excluded:{},activeId:null,apiKey:'',voice:''}}
+function blank(){return {students:[],extra:[],excluded:{},activeId:null,apiKey:'',voice:'',deleted:{}}}
 function load(){
   try{var raw=localStorage.getItem(KEY); if(raw){var d=JSON.parse(raw); var b=blank(); for(var k in b){if(!(k in d))d[k]=b[k]} return d;}}
   catch(e){memOnly=true}
   return blank();
 }
-function save(){ if(memOnly)return; try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){memOnly=true; toast('이 브라우저에는 기록을 저장할 수 없어요. 창을 닫으면 기록이 사라져요.')} }
+var SNAP={};   /* 학생별 마지막 저장 내용 → 바뀐 학생만 upd를 새로 찍어요 */
+function stuKey(st){var c={};for(var k in st){if(k!=='upd')c[k]=st[k]}return JSON.stringify(c)}
+S.students.forEach(function(st){SNAP[st.id]=stuKey(st); if(!st.upd)st.upd=1});
+function save(){
+  var now=Date.now();
+  S.students.forEach(function(st){var k=stuKey(st); if(SNAP[st.id]!==k){SNAP[st.id]=k; st.upd=now}});
+  if(!memOnly){ try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){memOnly=true} }
+  Cloud.schedule();
+}
+
+var Cloud=(function(){
+  var db=null, uid=null, state=IS_CLAUDE?'wait':'none', synced={}, timer=null, busy=false, again=false, listeners=[];
+  function base(){return 'data/users/'+uid}
+  function metaBody(){return {order:S.students.map(function(s){return s.id}),deleted:S.deleted||{},excluded:S.excluded||{},voice:S.voice||'',v:1}}
+  function extraBody(l){return {qs:(S.extra||[]).filter(function(q){return q.l===l})}}
+  function set(path,body){var j=JSON.stringify(body); if(synced[path]===j)return Promise.resolve(); return db.doc(path).set(body).then(function(){synced[path]=j})}
+  function flush(){
+    if(state!=='on')return Promise.resolve();
+    if(busy){again=true;return Promise.resolve()}
+    busy=true; var jobs=[];
+    S.students.forEach(function(st){jobs.push(set(base()+'/meta/students/'+st.id,{s:st}))});
+    Object.keys(S.deleted||{}).forEach(function(id){var p=base()+'/meta/students/'+id; if(synced[p]!=='gone'){jobs.push(db.doc(p).delete().then(function(){synced[p]='gone'}))}});
+    [1,2,3,4].forEach(function(l){jobs.push(set(base()+'/extra-'+l,extraBody(l)))});
+    jobs.push(set(base()+'/meta',metaBody()));
+    return Promise.all(jobs).then(function(){busy=false;setState('on');if(again){again=false;flush()}},function(e){
+      busy=false; var c=e&&e.code;
+      if(c==='quota_exceeded'){toast('Claude 계정 저장 공간이 가득 찼어요. 백업 파일을 내려받아 두세요.')}
+      else if(c==='unavailable'){setTimeout(flush,2000+Math.random()*2000)}
+      else if(c==='revoked'||c==='not_granted'||c==='capability_disabled'){setState('off')}
+      else {setState('err')}
+    });
+  }
+  function schedule(){ if(state!=='on')return; clearTimeout(timer); timer=setTimeout(flush,1200) }
+  function setState(s){if(s===state)return; state=s; listeners.forEach(function(f){f(s)})}
+  function merge(remoteMeta,remoteStudents,remoteExtra){
+    var del={}; [S.deleted||{},(remoteMeta&&remoteMeta.deleted)||{}].forEach(function(d){for(var k in d)del[k]=d[k]});
+    S.deleted=del;
+    var byId={}; S.students.forEach(function(s){byId[s.id]=s});
+    var changed=false;
+    remoteStudents.forEach(function(r){
+      if(del[r.id])return;
+      var l=byId[r.id];
+      if(!l){byId[r.id]=r;changed=true;return}
+      if((r.upd||0)>(l.upd||0)){
+        if(SCREEN!=='home'&&SCREEN!=='dash'&&l.id===S.activeId)return; /* 푸는 중인 학생은 지금 화면을 지켜요 */
+        byId[r.id]=r;changed=true;
+      }
+    });
+    var order=(remoteMeta&&remoteMeta.order)||[];
+    S.students.forEach(function(s){if(order.indexOf(s.id)<0)order=order.concat(s.id)});
+    Object.keys(byId).forEach(function(id){if(order.indexOf(id)<0)order=order.concat(id)});
+    var next=order.filter(function(id,i){return byId[id]&&!del[id]&&order.indexOf(id)===i}).map(function(id){return byId[id]});
+    if(next.length!==S.students.length||next.some(function(s,i){return s!==S.students[i]}))changed=true;
+    S.students=next;
+    next.forEach(function(st){SNAP[st.id]=stuKey(st)});
+    if(remoteMeta){
+      if(remoteMeta.excluded){for(var k in remoteMeta.excluded){if(!S.excluded[k]){S.excluded[k]=1;changed=true}}}
+      if(!S.voice&&remoteMeta.voice)S.voice=remoteMeta.voice;
+    }
+    var have={}; (S.extra||[]).forEach(function(q){have[q.id]=1});
+    remoteExtra.forEach(function(q){if(!have[q.id]){S.extra.push(q);have[q.id]=1;changed=true}});
+    if(changed)resetQMap();
+    if(S.activeId&&!byId[S.activeId])S.activeId=null;
+    return changed;
+  }
+  function start(){
+    if(!IS_CLAUDE)return;
+    Promise.all([window.claude.use('db'),window.claude.use('user')]).then(function(r){
+      db=r[0]; var user=r[1];
+      if(!db||!user||typeof user.id!=='function'){setState('none');return}
+      return user.id().then(function(id){
+        if(!id){setState('none');return}
+        uid=id;
+        var col=db.doc(base()+'/meta').collection('students');
+        return Promise.all([db.doc(base()+'/meta').get(),col.get(),Promise.all([1,2,3,4].map(function(l){return db.doc(base()+'/extra-'+l).get()}))]).then(function(res){
+          var meta=res[0].exists?res[0].data():null;
+          var studs=res[1].docs.filter(function(d){return d.exists&&d.data()&&d.data().s}).map(function(d){return JSON.parse(JSON.stringify(d.data().s))});
+          var extra=[]; res[2].forEach(function(d){if(d.exists&&d.data()&&d.data().qs)extra=extra.concat(JSON.parse(JSON.stringify(d.data().qs)))});
+          if(meta)synced[base()+'/meta']=null;
+          var changed=merge(meta,studs,extra);
+          if(!memOnly){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+          setState('on');
+          flush();
+          if(changed&&(SCREEN==='home'||SCREEN==='dash'))(SCREEN==='home'?home:dash)();
+          else if(SCREEN==='home')home();
+        });
+      });
+    }).catch(function(e){ setState(e&&e.code==='not_granted'?'off':'err') });
+  }
+  return {start:start,schedule:schedule,flush:flush,state:function(){return state},on:function(f){listeners.push(f)},_merge:merge};
+})();
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')Cloud.flush()});
+if(!IS_CLAUDE&&navigator.storage&&navigator.storage.persist){try{navigator.storage.persist().catch(function(){})}catch(e){}}
+
+/* ---------- backup file ---------- */
+function backupData(){
+  return {app:'golden-bell',v:1,exported:new Date().toISOString(),students:S.students,extra:S.extra||[],excluded:S.excluded||{},deleted:S.deleted||{}};
+}
+function exportBackup(){
+  var name='golden-bell-backup-'+today()+'.json', text=JSON.stringify(backupData());
+  if(IS_CLAUDE){
+    window.claude.use('downloads').then(function(dl){
+      if(!dl){toast('이 화면에서는 파일을 내려받을 수 없어요.');return}
+      return dl.save({filename:name,data:text}).then(function(){toast('백업 파일을 저장했어요.')},function(e){
+        if(e&&e.code==='declined')return; toast(e&&e.code==='rate_limited'?'잠시 뒤에 다시 눌러 주세요.':'파일을 저장하지 못했어요.')});
+    });
+    return;
+  }
+  try{
+    var url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+    var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url)},4000); toast('백업 파일을 저장했어요.');
+  }catch(e){toast('파일을 저장하지 못했어요.')}
+}
+function readBackup(file,done){
+  var r=new FileReader();
+  r.onload=function(){
+    try{var d=JSON.parse(r.result); if(!d||d.app!=='golden-bell'||!Array.isArray(d.students))throw 0; done(d)}
+    catch(e){toast('골든벨 30 백업 파일이 아니에요.')}
+  };
+  r.onerror=function(){toast('파일을 읽지 못했어요.')};
+  r.readAsText(file);
+}
+function applyBackup(d){
+  var byId={}; S.students.forEach(function(s){byId[s.id]=s});
+  var added=0, replaced=0, now=Date.now();
+  d.students.forEach(function(s){
+    if(!s||!s.id||!s.name)return;
+    var c=JSON.parse(JSON.stringify(s)); c.upd=now; c.cur=c.cur&&!c.cur.done?c.cur:null;
+    if(S.deleted)delete S.deleted[c.id];
+    if(byId[c.id]){S.students[S.students.indexOf(byId[c.id])]=c;replaced++}else{S.students.push(c);added++}
+    SNAP[c.id]='';
+  });
+  var have={}; S.extra.forEach(function(q){have[q.id]=1});
+  (d.extra||[]).forEach(function(q){if(q&&q.id&&!have[q.id]){S.extra.push(q);have[q.id]=1}});
+  for(var k in (d.excluded||{}))S.excluded[k]=1;
+  resetQMap(); save();
+  return {added:added,replaced:replaced};
+}
 function allQ(){return BUILTIN.concat(S.extra||[])}
 var QMAP=null;
 function qById(id){ if(!QMAP){QMAP={};allQ().forEach(function(q){QMAP[q.id]=q})} return QMAP[id] }
@@ -835,7 +979,7 @@ function yesterday(){var d=new Date();d.setDate(d.getDate()-1);return dstr(d)}
 
 /* ---------- students ---------- */
 function newStudent(name,av,level){
-  return {id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:name,av:av,level:level,points:0,streak:0,lastDay:'',dailyDone:'',
+  return {id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:name,av:av,level:level,startLevel:level,points:0,streak:0,lastDay:'',dailyDone:'',
     history:[],seen:{},wrong:{},cleared:0,badges:{},cur:null,cat:{},bestCombo:0,last:null};
 }
 function stu(){for(var i=0;i<S.students.length;i++){if(S.students[i].id===S.activeId)return S.students[i]}return null}
@@ -939,25 +1083,125 @@ function topbar(st,back){
 /* ================= SCREENS ================= */
 var tab='today';
 
+var manageOpen=false;
 function home(){
-  S.activeId=null; save();
+  SCREEN='home';
+  if(S.activeId){S.activeId=null; save();}
   var list = h('div',{class:'students'}, S.students.map(function(st){
     return h('button',{class:'stu',onclick:function(){S.activeId=st.id;save();tab='today';dash()}},
       h('span',{class:'av'},st.av), h('b',{},st.name),
       h('span',{class:'small muted'},'Lv'+st.level+' '+LV[st.level].name+' · '+titleOf(st.points)),
       h('span',{class:'small num'},'⭐ '+st.points.toLocaleString()+'점'+(st.streak?' · 🔥'+st.streak+'일':'')));
   }));
+  var cs=Cloud.state();
   mount(
     topbar(null),
     h('div',{class:'stack'},
       h('h1',{},'오늘도 골든벨을 울려 볼까요?'),
       h('p',{class:'muted'},'영어 상식 30문제가 매일 새로 나와요. 사지선다 15문제, 단답형 15문제예요. 한 세트를 80% 이상 맞히면 다음 난이도로 올라가요.'),
-      memOnly?h('div',{class:'notice'},'이 브라우저는 기록을 저장하지 못해요. 사파리 개인정보 보호 모드라면 일반 창에서 열어 주세요.'):null,
-      S.students.length?h('h2',{},'누가 풀까요?'):null,
-      S.students.length?list:null,
-      addStudentForm()
+      memOnly&&cs!=='on'?h('div',{class:'notice'},'이 브라우저는 기록을 저장하지 못해요. 사파리 개인정보 보호 모드라면 일반 창에서 열어 주세요. 끝나면 "기록 지키기"에서 백업 파일을 내려받아 두세요.'):null,
+      cs==='wait'&&!S.students.length?h('p',{class:'muted small'},'Claude 계정에 저장된 기록을 불러오는 중이에요…'):null,
+      S.students.length?h('div',{class:'spread'},h('h2',{},'누가 풀까요?'),h('button',{class:'btn ghost',style:'min-height:40px;padding:6px 14px',onclick:function(){manageOpen=!manageOpen;home()},'aria-expanded':String(manageOpen)},manageOpen?'관리 닫기':'학생 관리')):null,
+      S.students.length&&manageOpen?manageBox():null,
+      S.students.length&&!manageOpen?list:null,
+      addStudentForm(),
+      saveBox()
     )
   );
+}
+
+/* ---------- 학생 관리: 이름·아바타 바꾸기, 기록만 초기화, 학생 지우기 ---------- */
+function manageBox(){
+  return h('div',{class:'qlist'},S.students.map(function(st){return manageRow(st)}));
+}
+function manageRow(st){
+  var row=h('div',{class:'qitem stack',style:'gap:10px'});
+  function idle(){
+    row.innerHTML='';
+    add(row,[
+      h('div',{class:'row'},h('span',{style:'font-size:30px;line-height:1'},st.av),h('div',{style:'flex:1;min-width:0'},h('b',{},st.name),h('p',{class:'small muted num'},'Lv'+st.level+' · ⭐ '+st.points.toLocaleString()+'점 · 세트 '+st.history.length+'개 · 오답 '+Object.keys(st.wrong).length+'개'))),
+      h('div',{class:'row'},
+        h('button',{class:'btn ghost',style:'min-height:42px;padding:6px 12px',onclick:rename},'이름·아바타 바꾸기'),
+        h('button',{class:'btn ghost',style:'min-height:42px;padding:6px 12px',onclick:function(){confirmBox('reset')}},'기록 초기화'),
+        h('button',{class:'btn danger',style:'min-height:42px;padding:6px 12px',onclick:function(){confirmBox('del')}},'지우기'))
+    ]);
+  }
+  function rename(){
+    var av=st.av;
+    var inp=h('input',{class:'input',id:'rename-'+st.id,maxlength:'12',value:st.name,autocomplete:'off','aria-label':'새 이름'});
+    var avs=h('div',{class:'avatars'},AVATARS.map(function(a){return h('button',{type:'button','aria-pressed':String(a===av),'aria-label':'아바타 '+a,onclick:function(){av=a;[].forEach.call(avs.children,function(b){b.setAttribute('aria-pressed',String(b.textContent===a))})}},a)}));
+    row.innerHTML='';
+    add(row,h('form',{class:'stack',style:'gap:10px',onsubmit:function(e){e.preventDefault();var n=inp.value.trim();if(!n){inp.focus();toast('이름을 써 주세요.');return}
+        st.name=n;st.av=av;save();toast('바꿨어요.');home()}},
+      h('div',{class:'field'},h('label',{for:'rename-'+st.id},'이름'),inp),
+      h('div',{class:'field'},h('label',{},'아바타'),avs),
+      h('div',{class:'row'},h('button',{class:'btn primary',type:'submit'},'저장'),h('button',{class:'btn ghost',type:'button',onclick:idle},'취소'))));
+    inp.focus();
+  }
+  function confirmBox(kind){
+    var lv=st.startLevel||1;
+    row.innerHTML='';
+    if(kind==='reset'){
+      var seg=h('div',{class:'seg'},[1,2,3,4].map(function(n){return h('button',{type:'button','aria-pressed':String(n===lv),onclick:function(){lv=n;[].forEach.call(seg.children,function(b,i){b.setAttribute('aria-pressed',String(i+1===n))})}},'Lv'+n,h('br'),LV[n].name)}));
+      add(row,[
+        h('p',{},h('b',{},st.name),' 학생의 점수·배지·출석·오답 노트·세트 기록을 모두 지우고 처음부터 시작할까요? 이름과 아바타는 그대로 남아요.'),
+        h('div',{class:'field'},h('label',{},'다시 시작할 난이도'),seg),
+        h('div',{class:'row'},
+          h('button',{class:'btn danger',onclick:function(){
+            var fresh=newStudent(st.name,st.av,lv); fresh.id=st.id;
+            for(var k in st)delete st[k]; for(k in fresh)st[k]=fresh[k];
+            save(); toast(st.name+' 학생의 기록을 초기화했어요.'); home();
+          }},'기록 초기화'),
+          h('button',{class:'btn ghost',onclick:idle},'취소'))
+      ]);
+    } else {
+      add(row,[
+        h('p',{},h('b',{},st.name),' 학생을 지울까요? 이름과 모든 기록이 함께 지워지고 되돌릴 수 없어요. 필요하면 먼저 아래 "기록 지키기"에서 백업 파일을 내려받아 두세요.'),
+        h('div',{class:'row'},
+          h('button',{class:'btn danger',onclick:function(){deleteStudent(st);toast(st.name+' 학생을 지웠어요.');home()}},'지우기'),
+          h('button',{class:'btn ghost',onclick:idle},'취소'))
+      ]);
+    }
+  }
+  idle();
+  return row;
+}
+function deleteStudent(st){
+  S.students=S.students.filter(function(x){return x.id!==st.id});
+  S.deleted=S.deleted||{}; S.deleted[st.id]=Date.now();
+  if(S.activeId===st.id)S.activeId=null;
+  delete SNAP[st.id];
+  save();
+  if(!S.students.length)manageOpen=false;
+}
+
+/* ---------- 기록 지키기: 저장 상태, 백업 파일 ---------- */
+function saveBox(){
+  var cs=Cloud.state();
+  var status = cs==='on' ? '☁️ 이름과 기록을 내 Claude 계정에 저장하고 있어요. 다시 열거나 다른 기기의 Claude에서 열어도 그대로 있어요.'
+    : cs==='wait' ? 'Claude 계정 저장 공간에 연결하는 중이에요…'
+    : IS_CLAUDE ? '지금은 이 기기에만 저장돼요. 기록이 사라지지 않게 백업 파일을 가끔 내려받아 두세요.'
+    : '이름과 기록은 이 기기의 브라우저에 저장돼요. 브라우저 데이터를 지우거나 다른 기기로 옮길 때를 대비해 백업 파일을 내려받아 두세요.';
+  var pend=null, msg=h('div');
+  var file=h('input',{type:'file',id:'backupfile',accept:'.json,application/json',hidden:true,onchange:function(){
+    var f=file.files&&file.files[0]; file.value=''; if(!f)return;
+    readBackup(f,function(d){
+      pend=d; msg.innerHTML='';
+      var names=d.students.map(function(s){return s.name}).join(', ');
+      add(msg,h('div',{class:'notice stack',style:'gap:8px'},
+        h('p',{},'백업 파일('+(d.exported||'').slice(0,10)+')에 학생 '+d.students.length+'명이 있어요: '+names+'. 불러올까요? 이미 있는 같은 학생은 백업 기록으로 바뀌고, 다른 학생은 그대로 남아요.'),
+        h('div',{class:'row'},
+          h('button',{class:'btn primary',onclick:function(){var r=applyBackup(pend);toast('불러왔어요. 새 학생 '+r.added+'명, 바뀐 학생 '+r.replaced+'명.');home()}},'불러오기'),
+          h('button',{class:'btn ghost',onclick:function(){msg.innerHTML=''}},'취소'))));
+    });
+  }});
+  return h('details',{class:'card',open:memOnly&&cs!=='on'?true:null},h('summary',{},'기록 지키기 (저장·백업)'),h('div',{class:'stack'},
+    h('p',{class:'small'},status),
+    h('div',{class:'row'},
+      h('button',{class:'btn ghost',onclick:exportBackup,disabled:!S.students.length},'백업 파일 내려받기'),
+      h('button',{class:'btn ghost',onclick:function(){file.click()}},'백업 파일 불러오기')),
+    file,msg,
+    h('p',{class:'small muted'},'백업 파일에는 모든 학생의 이름·점수·배지·오답 노트와 Claude가 만든 문제가 들어 있어요. Claude 앱과 GitHub 웹앱 사이에 기록을 옮길 때도 써요.')));
 }
 
 function addStudentForm(){
@@ -977,6 +1221,7 @@ function addStudentForm(){
 
 function dash(){
   var st=stu(); if(!st)return home();
+  SCREEN='dash';
   var tabs=[['today','오늘'],['wrong','오답 노트'+(Object.keys(st.wrong).length?' '+Object.keys(st.wrong).length:'')],['rec','기록·배지'],['bank','문제 만들기']];
   var body = tab==='wrong'?wrongTab(st):tab==='rec'?recTab(st):tab==='bank'?bankTab(st):todayTab(st);
   mount(topbar(st,home),
@@ -1019,17 +1264,14 @@ function todayTab(st){
   return h('div',{class:'stack'},stage,ctas,low,
     h('details',{class:'card'},h('summary',{},'채점 규칙과 점수'),h('div',{class:'stack small'},
       h('p',{},'단답형은 철자가 정답과 똑같아야 맞아요. 사람·나라·도시 같은 고유명사는 대문자·소문자까지 정확해야 해요. 보통 단어는 대문자·소문자만 다르면 정답으로 치고, 바른 표기를 연습하도록 오답 노트에 넣어요. 답 앞뒤의 빈칸만 지워서 채점해요.'),
-      h('p',{},'쓰는 법: 나라·도시·사람 이름 같은 고유명사는 대문자로 시작해요(Paris). 보통 단어는 소문자로 써요(gravity). 숫자는 아라비아 숫자로 써요(17). a / an / the는 쓰지 않아요.'),
+      h('p',{},'쓰는 법: 나라·도시·사람 이름 같은 고유명사는 대문자로 시작해요(Paris). 보통 단어는 소문자로 써요(gravity). 수학 계산 답은 영어 단어로 써요(forty-two). 다른 숫자는 아라비아 숫자로 써요(17). a / an / the는 쓰지 않아요.'),
       h('p',{},'점수: 정답 1개에 Lv1 10점 · Lv2 20점 · Lv3 30점 · Lv4 40점, 단답형은 +5점. 3문제 연속 정답부터 콤보 +5점. 세트 정답률 80% 이상 +30점, 30문제 모두 정답 +100점, 그날 첫 세트를 끝내면 출석 +10점. 오답 노트에서 맞히면 문제마다 +5점.')
     )),
     teacherBox(st));
 }
 
 function teacherBox(st){
-  var confirmDel=false;
-  var delBtn=h('button',{class:'btn danger',onclick:function(){
-    if(!confirmDel){confirmDel=true;delBtn.textContent='한 번 더 누르면 '+st.name+' 기록이 모두 지워져요';return}
-    S.students=S.students.filter(function(x){return x.id!==st.id});save();home();}},'학생 지우기');
+  var delBtn=h('button',{class:'btn ghost',onclick:function(){manageOpen=true;home()}},'이름 바꾸기·기록 초기화·학생 지우기');
   var seg=h('div',{class:'seg'},[1,2,3,4].map(function(n){return h('button',{'aria-pressed':String(n===st.level),onclick:function(){if(st.cur&&!st.cur.done){st.cur=null}st.level=n;save();toast('난이도를 Lv'+n+'로 바꿨어요.');dash()}},'Lv'+n,h('br'),LV[n].name)}));
   var vsel=null;
   if(voices.length){
@@ -1076,6 +1318,7 @@ function quiz(){
 }
 
 function renderQuestion(o){
+  SCREEN='quiz';
   var q=o.q, answered=false;
   var fbBox=h('div');
   var head=h('div',{class:'qhead'},
@@ -1112,7 +1355,7 @@ function renderQuestion(o){
         if(!inp.value.trim()){inp.focus();toast('답을 쓰고 눌러 주세요. 모르면 "모르겠어요"를 눌러요.');return}
         var gr=gradeSA(q,inp.value), ok=!!gr; inp.readOnly=true; inp.classList.add(ok?'right':'wrong'); sub.disabled=true; skip.disabled=true; done(ok,inp.value,gr==='case'?'case':null)}},
       inp,
-      h('p',{class:'rule'},'고유명사는 대문자까지 정확히 · 보통 단어는 대소문자 상관없이 철자만 정확히 · 숫자는 숫자로 · a/an/the 없이'),
+      h('p',{class:'rule'},'고유명사는 대문자까지 정확히 · 보통 단어는 대소문자 상관없이 철자만 정확히 · a/an/the 없이'),
       sub);
     var skip=h('button',{class:'linkbtn',type:'button',onclick:function(){if(answered)return;inp.readOnly=true;sub.disabled=true;skip.disabled=true;done(false,'')}},'모르겠어요');
     area.appendChild(skip);
@@ -1191,6 +1434,7 @@ function finishSet(){
 }
 
 function result(){
+  SCREEN='quiz';
   var st=stu(), r=st.last; if(!r)return dash();
   var lines=h('div',{class:'lines num'},
     h('div',{},h('span',{},'문제 점수'),h('b',{},'+'+r.setPts)),
@@ -1397,7 +1641,9 @@ function generate(level,go,stop,log){
 
 /* ---------- boot ---------- */
 if(S.activeId&&stu())dash(); else home();
-window.__GB={buildSet:buildSet,gradeSA:gradeSA,validate:validate,S:function(){return S},BUILTIN:BUILTIN,hintFor:hintFor,finishSet:finishSet,newStudent:newStudent,qById:qById};
+Cloud.on(function(){if(SCREEN==='home')home()});
+Cloud.start();
+window.__GB={Cloud:Cloud,applyBackup:applyBackup,backupData:backupData,deleteStudent:deleteStudent,save:function(){save()},buildSet:buildSet,gradeSA:gradeSA,validate:validate,S:function(){return S},BUILTIN:BUILTIN,hintFor:hintFor,finishSet:finishSet,newStudent:newStudent,qById:qById};
 })();
 </script>
 <script>if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(function(){})}</script>
