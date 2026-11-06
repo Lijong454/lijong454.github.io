@@ -215,11 +215,31 @@ img { max-width: 100%; }
     <h2>알람 옵션</h2>
     <div class="opt"><span>알람 소리</span>
       <select id="sound" aria-label="알람 소리">
-        <option value="chime">아침 차임</option>
-        <option value="bell">탁상시계 벨</option>
-        <option value="beep">전자 비프</option>
-        <option value="musicbox">오르골</option>
-        <option value="birds">새소리</option>
+        <optgroup label="잔잔한 소리">
+          <option value="chime">아침 차임</option>
+          <option value="bell">탁상시계 벨</option>
+          <option value="beep">전자 비프</option>
+          <option value="musicbox">오르골</option>
+          <option value="birds">새소리</option>
+          <option value="harp">하프</option>
+          <option value="bowl">싱잉볼</option>
+          <option value="marimba">마림바</option>
+          <option value="piano">아침 피아노</option>
+        </optgroup>
+        <optgroup label="시끄러운 소리">
+          <option value="siren">사이렌</option>
+          <option value="firebell">비상벨</option>
+          <option value="smoke">화재경보기</option>
+          <option value="rapid">다급한 비프</option>
+          <option value="horn">에어혼</option>
+          <option value="klaxon">클랙슨 경보</option>
+          <option value="fanfare">기상 나팔</option>
+          <option value="twinbell">쌍종 자명종</option>
+          <option value="raid">공습경보</option>
+          <option value="warble">전자 경보</option>
+          <option value="buzzer">부저</option>
+          <option value="chaos">최강 혼합 알람</option>
+        </optgroup>
         <option value="file">내 음악 파일…</option>
       </select>
     </div>
@@ -496,7 +516,73 @@ img { max-width: 100%; }
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + dur * .2); g.gain.linearRampToValueAtTime(0, t + dur);
     o.connect(g).connect(out); o.start(t); o.stop(t + dur + .02);
   }
+  // one oscillator note; f lists pitch points spread evenly over dur (for sweeps)
+  function tone(t, out, { type = "square", f = [440], dur = .2, amp = .1, attack = .005, release = .02, lp = 0, vib = null }) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f[0], t);
+    for (let i = 1; i < f.length; i++) o.frequency.linearRampToValueAtTime(f[i], t + dur * i / (f.length - 1));
+    let node = o;
+    if (lp) { const fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = lp; o.connect(fl); node = fl; }
+    if (vib) {
+      const l = ctx.createOscillator(), d = ctx.createGain();
+      l.frequency.value = vib[0]; d.gain.value = vib[1]; l.connect(d).connect(o.frequency); l.start(t); l.stop(t + dur + .05);
+    }
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + attack);
+    g.gain.setValueAtTime(amp, t + Math.max(attack, dur - release)); g.gain.linearRampToValueAtTime(0, t + dur);
+    node.connect(g).connect(out); o.start(t); o.stop(t + dur + .05);
+  }
   const PATTERNS = {
+    // ---- loud ----
+    siren: { len: 2, play(t, o) {
+      tone(t, o, { type: "sawtooth", f: [650, 1350, 650], dur: 2, amp: .22, attack: .02, lp: 3200 });
+      tone(t, o, { type: "square", f: [652, 1355, 652], dur: 2, amp: .08, attack: .02, lp: 2500 }); } },
+    firebell: { len: 1, play(t, o) {
+      for (let i = 0; i < 24; i++) bell(t + i * .038, 2600, .3, .22, o, [[1, 1], [2.4, .55], [4.1, .35], [5.6, .2]]); } },
+    smoke: { len: 3, play(t, o) {
+      [0, .6, 1.2].forEach(s => tone(t + s, o, { type: "square", f: [3150], dur: .45, amp: .16 })); } },
+    rapid: { len: .5, play(t, o) {
+      for (let i = 0; i < 4; i++) tone(t + i * .1, o, { type: "square", f: [2050], dur: .055, amp: .16, attack: .002, release: .005 }); } },
+    horn: { len: 1.6, play(t, o) {
+      [233.08, 277.18, 349.23, 466.16].forEach(f =>
+        tone(t, o, { type: "sawtooth", f: [f * .94, f, f], dur: 1.1, amp: .11, attack: .03, release: .12, lp: 2800, vib: [5.5, 3] })); } },
+    klaxon: { len: 1.3, play(t, o) {
+      tone(t, o, { type: "square", f: [170, 420, 430], dur: .9, amp: .2, attack: .02, release: .08, lp: 2200, vib: [28, 12] });
+      tone(t, o, { type: "sawtooth", f: [172, 425, 432], dur: .9, amp: .1, attack: .02, release: .08, lp: 1800 }); } },
+    fanfare: { len: 3.6, play(t, o) {
+      let s = 0;
+      [[523.25, .18], [523.25, .18], [659.25, .18], [783.99, .36], [523.25, .18], [783.99, .18], [1046.5, .9]].forEach(([f, d]) => {
+        tone(t + s, o, { type: "sawtooth", f: [f * .985, f], dur: d * .92, amp: .18, attack: .025, release: .05, lp: 3000, vib: d > .5 ? [5, 4] : null });
+        s += d;
+      }); } },
+    twinbell: { len: 1.4, play(t, o) {
+      for (let i = 0; i < 36; i++) bell(t + i * .033, i % 2 ? 1960 : 2240, .2, .2, o, [[1, 1], [2.6, .5], [4.3, .3]]); } },
+    raid: { len: 6, play(t, o) {
+      tone(t, o, { type: "sawtooth", f: [300, 900, 900, 900, 300], dur: 6, amp: .22, attack: .05, release: .05, lp: 2600 });
+      tone(t, o, { type: "sawtooth", f: [450, 1350, 1350, 1350, 450], dur: 6, amp: .12, attack: .05, release: .05, lp: 3000 }); } },
+    warble: { len: .5, play(t, o) {
+      for (let i = 0; i < 10; i++) tone(t + i * .05, o, { type: "square", f: [i % 2 ? 1250 : 800], dur: .05, amp: .2, attack: .002, release: .002 }); } },
+    buzzer: { len: 1.2, play(t, o) {
+      tone(t, o, { type: "sawtooth", f: [110], dur: .8, amp: .22, attack: .005, release: .03, lp: 4000 });
+      tone(t, o, { type: "square", f: [116], dur: .8, amp: .15, attack: .005, release: .03, lp: 4000 });
+      tone(t, o, { type: "sawtooth", f: [220], dur: .8, amp: .1, attack: .005, release: .03, lp: 4000 }); } },
+    chaos: { len: 2, play(t, o) {
+      tone(t, o, { type: "sawtooth", f: [600, 1400, 600], dur: 2, amp: .14, attack: .02, lp: 3200 });
+      for (let i = 0; i < 20; i++) tone(t + i * .1, o, { type: "square", f: [2600], dur: .05, amp: .1, attack: .002, release: .005 });
+      for (let i = 0; i < 40; i++) bell(t + i * .05, 2400, .2, .12, o, [[1, 1], [2.4, .55], [4.1, .35]]); } },
+    // ---- gentle ----
+    harp: { len: 4, play(t, o) {
+      [261.63, 329.63, 392, 493.88, 523.25, 659.25, 783.99, 987.77].forEach((f, i) =>
+        bell(t + i * .14, f, 2.5, .16, o, [[1, 1], [2, .25], [3, .08]])); } },
+    bowl: { len: 6, play(t, o) {
+      bell(t, 220, 7, .25, o, [[1, 1], [2.71, .4], [5.15, .15]]);
+      bell(t, 221.5, 7, .1, o, [[1, 1], [2.71, .3]]); } },
+    marimba: { len: 3.2, play(t, o) {
+      [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46].forEach((f, i) =>
+        bell(t + i * .2, f, .6, .22, o, [[1, 1], [3.9, .2], [9.2, .05]])); } },
+    piano: { len: 4.8, play(t, o) {
+      [[261.63, 329.63, 392], [220, 261.63, 329.63], [174.61, 220, 261.63], [196, 246.94, 293.66]].forEach((ch, i) =>
+        ch.forEach((f, j) => bell(t + i * 1.2 + j * .03, f, 2.4, .09, o, [[1, 1], [2, .5], [3, .25], [4, .12]]))); } },
     chime: { len: 2.6, play(t, o) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => bell(t + i * .24, f, 1.6, .28, o)); } },
     bell: { len: 1.2, play(t, o) {
       for (let i = 0; i < 14; i++) bell(t + i * .055, i % 2 ? 2350 : 2480, .12, .16, o, [[1, 1], [1.5, .4], [2.7, .2]]); } },
