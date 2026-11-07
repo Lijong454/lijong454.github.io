@@ -93,6 +93,10 @@ label.drop input{position:absolute;width:1px;height:1px;opacity:0}
 .gsetup{border-top:1.5px solid var(--line);padding-top:10px}
 .gsetup summary{cursor:pointer;font:600 15px var(--f-ko);display:flex;gap:10px;align-items:center;min-height:32px}
 .gsetup code{font:13px ui-monospace,Menlo,monospace;background:var(--chip);border-radius:6px;padding:1px 6px;overflow-wrap:anywhere;cursor:copy}
+.gacct{justify-content:space-between}
+.gbox{display:grid;gap:8px;border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:12px;font-family:var(--f-ko);font-size:15px}
+.gbox.warn{border-color:var(--bad);background:var(--bad-soft)}
+.gbox a.btn{text-decoration:none}
 .drive{display:grid;gap:10px}
 .steps-plain{margin:0;padding-left:20px;display:grid;gap:6px;font:15px var(--f-ko)}
 .noclaude{margin:0 0 10px;background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:12px;padding:10px 14px;font:14.5px var(--f-ko)}
@@ -651,6 +655,10 @@ const GDRIVE_DEFAULT={clientId:"",apiKey:"",appId:""};
 const canPicker=standalone&&location.protocol==="https:";
 const isHomeScreen=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
 let gcfg=Object.assign({},GDRIVE_DEFAULT,load(GCFG_KEY,{}));
+const GPEND_KEY="readalong-gpending-v1", GPICK_KEY="readalong-gchoose-v1";
+const isChromeIOS=/CriOS/.test(navigator.userAgent);
+function chooseAccountNext(){try{return localStorage.getItem(GPICK_KEY)==="1"}catch(e){return false}}
+function setChooseAccount(v){try{v?localStorage.setItem(GPICK_KEY,"1"):localStorage.removeItem(GPICK_KEY)}catch(e){}}
 function gReady(){return !!(gcfg.clientId&&gcfg.apiKey&&gcfg.appId)}
 function redirectUri(){return location.origin+location.pathname.replace(/index\.html$/,"")}
 function loadScript(src){return new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`)){ok();return}
@@ -663,28 +671,35 @@ function keepToken(token,sec){try{sessionStorage.setItem(GTOK_KEY,JSON.stringify
 function getTokenPopup(){
   return loadScript("https://accounts.google.com/gsi/client").then(()=>new Promise((ok,no)=>{
     const tc=google.accounts.oauth2.initTokenClient({client_id:gcfg.clientId,scope:DRIVE_SCOPE,
-      callback:r=>{if(r&&r.access_token){keepToken(r.access_token,r.expires_in);ok(r.access_token)}else no({code:r&&r.error||"denied"})},
+      callback:r=>{if(r&&r.access_token){keepToken(r.access_token,r.expires_in);setChooseAccount(false);ok(r.access_token)}else no({code:r&&r.error||"denied"})},
       error_callback:e=>no({code:e&&e.type==="popup_closed"?"popup_closed":e&&e.type==="popup_failed_to_open"?"popup_blocked":"denied"})});
-    tc.requestAccessToken({prompt:""});
+    tc.requestAccessToken({prompt:chooseAccountNext()?"select_account":""});
   }));
 }
 function signInRedirect(){
   const state=Math.random().toString(36).slice(2)+Date.now().toString(36);
   try{localStorage.setItem(GSTATE_KEY,state)}catch(e){}
-  const q=new URLSearchParams({client_id:gcfg.clientId,redirect_uri:redirectUri(),response_type:"token",scope:DRIVE_SCOPE,include_granted_scopes:"true",state});
+  const q=new URLSearchParams({client_id:gcfg.clientId,redirect_uri:redirectUri(),response_type:"token",scope:DRIVE_SCOPE,include_granted_scopes:"true",state,prompt:"select_account"});
+  try{localStorage.setItem(GPEND_KEY,String(Date.now()))}catch(e){}
   location.assign("https://accounts.google.com/o/oauth2/v2/auth?"+q.toString());
 }
 function readRedirectToken(){ // called once at load
-  if(!/access_token=|error=/.test(location.hash))return null;
+  let pend=0;try{pend=+localStorage.getItem(GPEND_KEY)||0;localStorage.removeItem(GPEND_KEY)}catch(e){}
+  if(!/access_token=|error=/.test(location.hash)){
+    // Came back without an answer from Google (e.g. its own error page was closed): say so and offer a fresh start.
+    return pend&&Date.now()-pend<30*60000?{err:"unfinished"}:null;
+  }
   const h=new URLSearchParams(location.hash.slice(1));let want="";try{want=localStorage.getItem(GSTATE_KEY)||"";localStorage.removeItem(GSTATE_KEY)}catch(e){}
   history.replaceState(null,"",location.pathname+location.search);
   if(!want||h.get("state")!==want)return {err:"state"};
   if(h.get("error"))return {err:h.get("error")};
-  keepToken(h.get("access_token"),h.get("expires_in"));return {ok:true};
+  keepToken(h.get("access_token"),h.get("expires_in"));setChooseAccount(false);return {ok:true};
 }
 function gErr(e){const c=e&&e.code;
   if(c==="popup_blocked")return "로그인 창이 막혔어요. 브라우저에서 이 사이트의 팝업을 허용한 뒤 다시 눌러 주세요.";
-  if(c==="popup_closed"||c==="access_denied"||c==="denied")return "구글 로그인을 마치지 않았어요. 다시 누르면 로그인 창이 떠요.";
+  if(c==="access_denied")return "구글이 로그인을 막았어요(access_denied). 로그인한 계정이 Google Cloud의 ‘테스트 사용자’에 등록돼 있는지 확인하고, ‘로그아웃’ 후 등록한 계정으로 다시 로그인해 주세요.";
+  if(c==="unfinished")return "구글 로그인이 끝나지 않았어요. 오류 화면이 나왔다면 ‘로그아웃’을 누른 뒤 다른 계정으로 다시 시도하거나 ‘크롬에서 열기’로 로그인해 주세요.";
+  if(c==="popup_closed"||c==="denied")return "구글 로그인을 마치지 않았어요. 다시 누르면 로그인 창이 떠요.";
   if(c==="state")return "로그인 확인에 실패했어요. ‘드라이브에서 PDF 고르기’를 다시 눌러 주세요.";
   if(c==="load")return "구글 드라이브 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.";
   if(c==="dl_403")return "이 파일을 내려받을 권한이 없어요. 설정의 ‘프로젝트 번호’가 맞는지 확인해 주세요.";
@@ -698,7 +713,7 @@ async function openPicker(){
   let token=savedToken();
   try{
     if(!token){
-      if(isIOS&&isHomeScreen){st.textContent="구글 로그인 화면으로 이동해요…";signInRedirect();return}
+      if(isIOS&&isHomeScreen){showHomeLogin();return}
       st.textContent="구글 로그인 창을 여는 중…";
       token=await getTokenPopup();
     }
@@ -709,7 +724,40 @@ async function openPicker(){
       .setOAuthToken(token).setDeveloperKey(gcfg.apiKey).setAppId(gcfg.appId).setLocale("ko").setTitle("학습실로 가져올 PDF 고르기")
       .setCallback(d=>{if(d.action===google.picker.Action.PICKED&&d.docs&&d.docs[0])pickerDownload(d.docs[0],token)}).build();
     pk.setVisible(true);
-  }catch(e){st.textContent="";toastErr(gErr(e&&e.code?e:{code:e&&e.message==="load"?"load":""}))}
+  }catch(e){st.textContent="";gFail(e&&e.code?e:{code:e&&e.message==="load"?"load":""})}
+}
+/* Errors that may come from the wrong account get the logout and Chrome options right next to the message. */
+function gFail(e){toastErr(gErr(e));const c=e&&e.code;
+  if(["access_denied","unfinished","denied","popup_blocked","popup_closed","dl_401","dl_403","state"].includes(c))showRecovery(c)}
+function showRecovery(c){
+  const box=$("#gRecover");if(!box)return;box.hidden=false;
+  $("#gRecoverMsg").textContent=c==="popup_blocked"?"로그인 창이 막혔다면 크롬에서 열어 로그인할 수 있어요.":"계정 문제로 보이면 로그아웃한 뒤 다른 계정으로 다시 로그인해 보세요.";
+}
+async function gLogout(){
+  const t=savedToken();
+  try{sessionStorage.removeItem(GTOK_KEY);localStorage.removeItem(GSTATE_KEY);localStorage.removeItem(GPEND_KEY)}catch(e){}
+  setChooseAccount(true);
+  if(t){try{await fetch("https://oauth2.googleapis.com/revoke?token="+encodeURIComponent(t),{method:"POST",headers:{"Content-type":"application/x-www-form-urlencoded"}})}catch(e){}}
+  try{window.google?.accounts?.id?.disableAutoSelect?.()}catch(e){}
+  $("#upErr").hidden=true;const b=$("#gRecover");if(b)b.hidden=true;
+  $("#driveState").textContent="로그아웃했어요. 다음 로그인 때 계정을 다시 고를 수 있어요.";
+  renderAccountRow();
+}
+/* iPhone home-screen app: popups are lost there, so offer Chrome or an in-app sign-in page. */
+function openInChrome(){
+  const url=location.href.replace(/#.*$/,"").replace(/^https:\/\//,"googlechromes://");
+  const st=$("#driveState");st.textContent="크롬을 여는 중…";
+  location.href=url;
+  setTimeout(()=>{if(!document.hidden)st.textContent="크롬이 열리지 않으면 App Store에서 ‘Google Chrome’을 설치해 주세요."},1800);
+}
+function showHomeLogin(){
+  const box=$("#gHome");if(!box)return;box.hidden=false;box.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+function renderAccountRow(){
+  const row=$("#gAccount");if(!row)return;const has=!!savedToken();
+  row.hidden=!has&&!chooseAccountNext();
+  $("#gAccountMsg").textContent=has?"구글에 로그인돼 있어요.":"로그아웃 상태예요. 다음에 누르면 계정을 고르는 화면이 떠요.";
+  $("#gLogout").hidden=!has;
 }
 async function pickerDownload(doc,token){
   const st=$("#driveState");st.textContent=`‘${doc.name}’ 가져오는 중…`;
@@ -722,7 +770,7 @@ async function pickerDownload(doc,token){
     let name=String(doc.name||"drive.pdf");if(!/\.pdf$/i.test(name))name+=".pdf";
     pick(new File([bytes],name,{type:"application/pdf"}));
     st.textContent="가져왔어요. 난이도를 고르고 ‘학습 페이지 만들기’를 누르세요.";
-  }catch(e){st.textContent="";toastErr(gErr(e))}
+  }catch(e){st.textContent="";gFail(e)}
 }
 function gSetupHTML(){
   const origin=location.origin, uri=redirectUri();
@@ -748,10 +796,27 @@ function setupLocalDrive(){
   if(canPicker){
     $("#drivePanel").innerHTML=`<p class="guide">구글 계정으로 로그인하면 학습실 안에서 드라이브가 열려요. PDF를 고르면 바로 가져와요.</p>
       <div class="row"><button class="btn primary" type="button" id="drivePick"${gReady()?"":" disabled"}>드라이브에서 PDF 고르기</button><button class="btn" type="button" id="driveDevice">기기 파일 창에서 고르기</button></div>
+      <div class="row gacct" id="gAccount" hidden><span class="note" id="gAccountMsg"></span><button class="btn" type="button" id="gLogout">로그아웃</button></div>
+      <div class="gbox" id="gHome" hidden>
+        <b>홈 화면 앱에서는 구글 로그인 창이 열리지 않아요. 로그인 방법을 골라 주세요.</b>
+        <div class="row"><button class="btn primary" type="button" id="gChrome">크롬에서 열어 로그인</button><button class="btn" type="button" id="gRedirect">이 앱에서 로그인 화면으로 이동</button></div>
+        <p class="note"><b>크롬에서 열기</b>: 크롬에 로그인된 구글 계정으로 바로 로그인돼요. 크롬에서 만든 기사는 크롬에 저장되고 이 홈 화면 앱에는 보이지 않아요. 처음 한 번은 크롬에서도 API 키와 드라이브 설정을 넣어야 해요.<br><b>이 앱에서 이동</b>: 계정을 고르는 화면이 떠요. 오류 화면이 나오면 왼쪽 위 <b>완료</b>를 눌러 돌아온 뒤 <b>로그아웃</b>을 누르세요.</p>
+      </div>
+      <div class="gbox warn" id="gRecover" hidden>
+        <span id="gRecoverMsg"></span>
+        <div class="row"><button class="btn primary" type="button" id="gRecoverOut">로그아웃하고 다시 로그인</button>${isIOS&&!isChromeIOS?'<button class="btn" type="button" id="gRecoverChrome">크롬에서 열기</button>':""}<a class="btn ghost" href="https://accounts.google.com/Logout" target="_blank" rel="noopener">구글 계정 전체 로그아웃</a></div>
+        <p class="note">‘구글 계정 전체 로그아웃’은 이 브라우저의 모든 구글 서비스에서 로그아웃돼요. 계정이 계속 잘못 고정될 때만 쓰세요.</p>
+      </div>
       ${gSetupHTML()}
       <p class="note">학습실은 내가 고른 파일만 읽을 수 있어요(drive.file 권한). 로그인은 이 창을 닫으면 끝나요.</p>`;
     $("#drivePick").onclick=openPicker;
     $("#driveDevice").onclick=()=>pdfIn.click();
+    $("#gLogout").onclick=gLogout;
+    $("#gChrome").onclick=openInChrome;
+    $("#gRedirect").onclick=()=>{$("#driveState").textContent="구글 로그인 화면으로 이동해요…";signInRedirect()};
+    $("#gRecoverOut").onclick=async()=>{await gLogout();openPicker()};
+    const rc=$("#gRecoverChrome");if(rc)rc.onclick=openInChrome;
+    renderAccountRow();
     $("#gSave").onclick=()=>{const c=$("#gClient").value.trim(),k=$("#gKey").value.trim(),a=$("#gApp").value.replace(/\D/g,"");
       if(!/\.apps\.googleusercontent\.com$/.test(c)){$("#gMsg").textContent="클라이언트 ID는 ‘.apps.googleusercontent.com’으로 끝나요.";return}
       if(!/^AIza/.test(k)){$("#gMsg").textContent="API 키는 ‘AIza’로 시작해요.";return}
@@ -770,7 +835,8 @@ function setupLocalDrive(){
 }
 /* Coming back from Google sign-in (home-screen app on iPhone): open the picker straight away. */
 if(canPicker){const r=readRedirectToken();if(r){openUpload&&setTimeout(()=>{openUpload();const p=$("#drivePanel");p.hidden=false;$("#driveOpen").setAttribute("aria-expanded","true");
-  if(r.ok)openPicker();else toastErr(gErr({code:r.err}))},50)}}
+  const go=()=>{if(r.ok)openPicker();else gFail({code:r.err})};
+  if(mcp===null&&$("#gRecover")===null){mcpPromise.then(()=>setTimeout(go,30))}else go()},50)}}
 function driveErr(e){
   const c=e&&e.code;
   if(c==="server_not_connected"||c==="server_not_found")return "Google Drive가 연결돼 있지 않아요. claude.ai 설정 › 커넥터에서 Google Drive를 추가해 주세요.";
